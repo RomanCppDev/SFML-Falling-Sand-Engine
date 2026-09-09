@@ -3,9 +3,9 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 
-const int WIDTH = 100;
-const int HEIGHT = 75;
-const int CELL_SIZE = 10;
+const int WIDTH = 300;
+const int HEIGHT = 225;
+const int CELL_SIZE = 3;
 
 enum Element{
     AIR = 0,
@@ -13,12 +13,15 @@ enum Element{
     WATER = 2,
     STONE = 3,
     DIRT = 4,
-    FIRE = 5,
+    FIRE1 = 5,
+    ACID_L = 6,
+    ACID_R = 7,
 };
 
 class SandBoxEngine{
 private:
     std::vector<int> grid;
+    std::vector<int> colors;
     sf::VertexArray pixels;
 
     int getIndex(int x, int y){
@@ -32,42 +35,78 @@ private:
 public:
     SandBoxEngine(){
         grid.assign(WIDTH*HEIGHT, AIR);
+        colors.assign(WIDTH*HEIGHT, AIR);
         pixels.setPrimitiveType(sf::PrimitiveType::Quads);
         pixels.resize(WIDTH*HEIGHT*4);
+
+        for(int i = 0; i < WIDTH * HEIGHT; ++i) {
+            colors[i] = std::rand() % 2;
+        }   
     }
 
     void addBlock(int mouseX, int mouseY, int brushSize, int BlockId){
         for(int dy = -brushSize; dy<=brushSize; ++dy){
             for(int dx=-brushSize; dx<=brushSize; ++dx){
+
+                //Позиции новой частицы
                 int nx = mouseX + dx;
                 int ny = mouseY + dy;
                 
                 int index = getIndex(nx,ny);
+
                 if(isVaild(nx, ny) && (BlockId == AIR || grid[index] == AIR)){
-                    grid[index] = BlockId;
+                    // Логика создания кислоты
+                    if(BlockId == ACID_L){
+                        int side = (rand() % 2 == 0) ? 0 : 1;
+                        if(side == 0){grid[index] = ACID_L;}
+                        else{grid[index] = ACID_R;}
+                    }
+                    else{
+                        grid[index] = BlockId;
+                        colors[index] = (rand() % 2 == 0) ? 0 : 1;
+                    }
                 }
             }
         }
     }
 
+    // Логика обновления блоков
     void update(){
         for(int y = HEIGHT - 2; y >= 0; --y){
             for(int x = 0; x < WIDTH; ++x){
                 int currentIndex = getIndex(x,y);
+                int color = std::rand() % 2;
 
-                //Песок (SAND)
+                //Песок
                 if(grid[currentIndex] == SAND){
+                    if(isVaild(x,y+1)&& (grid[getIndex(x,y+1)] == ACID_L || grid[getIndex(x,y+1)] == ACID_R)){
+                        grid[currentIndex] = AIR;
+                        grid[getIndex(x,y+1)] = AIR;
+
+                        colors[currentIndex] = color;
+                        colors[getIndex(x,y+1)] = 0;
+                    }
+
                     if(isVaild(x,y+1) && grid[getIndex(x,y+1)] == AIR){
                         grid[currentIndex] = AIR;
-                        grid[getIndex(x,y+1)] = SAND;
+                        grid[getIndex(x,y+1)] = SAND; 
+
+                        colors[getIndex(x,y+1)] = colors[currentIndex];
+                        colors[currentIndex] = color;
                     }
                     else if(isVaild(x-1,y+1) && grid[getIndex(x-1,y+1)]==AIR){
                         grid[currentIndex] = AIR;
                         grid[getIndex(x-1,y+1)] = SAND;
+
+                        colors[getIndex(x-1,y+1)] = colors[currentIndex];
+                        colors[currentIndex] = color;
                     }
                     else if(isVaild(x+1,y+1) && grid[getIndex(x+1,y+1)]==AIR){
                         grid[currentIndex] = AIR;
                         grid[getIndex(x+1,y+1)] = SAND;
+
+                        colors[getIndex(x+1,y+1)] = colors[currentIndex];
+                        colors[currentIndex] = color;
                     }
 
                     //Песок + Вода = Земля
@@ -91,17 +130,34 @@ public:
                 }
                 //Вода
                 else if(grid[currentIndex] == WATER){
+                    if(grid[getIndex(x,y+1)] == ACID_L || grid[getIndex(x,y+1)] == ACID_R){
+                            grid[currentIndex] = AIR;
+                            grid[getIndex(x, y + 1)] = AIR;
+
+                            colors[currentIndex] = color;
+                            colors[getIndex(x,y+1)] = 0;
+                    }
+                    
                     if(isVaild(x, y + 1) && grid[getIndex(x, y + 1)] == AIR){
                         grid[currentIndex] = AIR;
                         grid[getIndex(x, y + 1)] = WATER;
+
+                        colors[getIndex(x,y+1)] = colors[currentIndex];
+                        colors[currentIndex] = color;
                     }
                     else if(isVaild(x - 1, y + 1) && grid[getIndex(x - 1, y + 1)] == AIR){
                         grid[currentIndex] = AIR;
                         grid[getIndex(x - 1, y + 1)] = WATER;
+
+                        colors[getIndex(x-1,y+1)] = colors[currentIndex];
+                        colors[currentIndex] = color;
                     }
                     else if(isVaild(x + 1, y + 1) && grid[getIndex(x + 1, y + 1)] == AIR){
                         grid[currentIndex] = AIR;
                         grid[getIndex(x + 1, y + 1)] = WATER;
+
+                        colors[getIndex(x+1,y+1)] = colors[currentIndex];
+                        colors[currentIndex] = color;
                     }
                     else {
                         int sideDir = (rand() % 2 == 0) ? -1 : 1;
@@ -115,34 +171,120 @@ public:
                             if (isVaild(nextX, y) && grid[getIndex(nextX, y)] == AIR) {
                                 currentX = nextX;
                             } else {
-                                break; // Уперлись в препятствие, дальше течь нельзя
+                                break;
                             }
                         }
 
                         if (currentX != x) {
                             grid[currentIndex] = AIR;
                             grid[getIndex(currentX, y)] = WATER;
+
+                            // colors[getIndex(currentX,y)] = colors[currentIndex];
+                            // colors[currentIndex] = color;
                         }
                     }
                 }
                 //Земля
                 else if(grid[currentIndex]==DIRT){
-                    if(isVaild(x,y+1) && grid[getIndex(x,y+1)] == AIR){
+                    if(grid[getIndex(x,y+1)] == ACID_L || grid[getIndex(x,y+1)] == ACID_R){
+                            grid[currentIndex] = AIR;
+                            grid[getIndex(x, y + 1)] = AIR;
+
+                            colors[currentIndex] = color;
+                            colors[getIndex(x,y+1)] = 0;
+                    }
+
+                    if(isVaild(x,y+1) && grid[getIndex(x, y + 1)] == AIR){
                         grid[currentIndex] = AIR;
-                        grid[getIndex(x,y+1)] = DIRT;
+                        grid[getIndex(x, y + 1)] = DIRT;
+
+                        colors[getIndex(x,y+1)] = colors[currentIndex];
+                        colors[currentIndex] = color;
                     }
                     else if(isVaild(x-1,y+1) && grid[getIndex(x-1,y+1)]==AIR){
                         grid[currentIndex] = AIR;
                         grid[getIndex(x-1,y+1)] = DIRT;
+
+                        colors[getIndex(x-1,y+1)] = colors[currentIndex];
+                        colors[currentIndex] = color;
                     }
                     else if(isVaild(x+1,y+1) && grid[getIndex(x+1,y+1)]==AIR){
                         grid[currentIndex] = AIR;
                         grid[getIndex(x+1,y+1)] = DIRT;
+
+                        colors[getIndex(x+1,y+1)] = colors[currentIndex];
+                        colors[currentIndex] = color;
+                    }
+                }
+                //Кислота
+                else if (grid[currentIndex] == ACID_L || grid[currentIndex] == ACID_R) {
+                    int currentType = grid[currentIndex]; // Запоминаем текущий тип (ACID_L или ACID_R)
+                    int downIndex = getIndex(x, y + 1);
+
+                    if (isVaild(x, y + 1)) {
+                        if (grid[downIndex] == AIR) {
+                            grid[currentIndex] = AIR;
+                            grid[downIndex] = currentType;
+                            colors[downIndex] = colors[currentIndex];
+                            colors[currentIndex] = 0;
+                            continue;
+                        }
+                    else if (grid[downIndex] != ACID_L && grid[downIndex] != ACID_R) {
+                        grid[currentIndex] = AIR;
+                        grid[downIndex] = AIR;
+                        colors[currentIndex] = 0;
+                        colors[downIndex] = 0;
+                        continue;
+                    }
+                    }
+
+                    int dir = (std::rand() % 2 == 0) ? -1 : 1;
+    
+                    int sideX = x + dir;
+                    int sideIndex = getIndex(sideX, y);
+
+                    if (isVaild(sideX, y)) {
+                        if (grid[sideIndex] == AIR) {
+                            grid[currentIndex] = AIR;
+                            grid[sideIndex] = (dir == -1) ? ACID_L : ACID_R; 
+            
+                            colors[sideIndex] = colors[currentIndex];
+                            colors[currentIndex] = 0;
+                            continue;
+                        }
+                    else if (grid[sideIndex] != ACID_L && grid[sideIndex] != ACID_R) {
+                        grid[currentIndex] = AIR;
+                        grid[sideIndex] = AIR;
+                        colors[currentIndex] = 0;
+                        colors[sideIndex] = 0;
+                        continue;
+                    }
+                }
+
+                int altX = x - dir; // Изменение направления на противоположное
+                int altIndex = getIndex(altX, y);
+
+                if (isVaild(altX, y)) {
+                    if (grid[altIndex] == AIR) {
+                        grid[currentIndex] = AIR;
+                        grid[altIndex] = (dir == 1) ? ACID_L : ACID_R; 
+            
+                        colors[altIndex] = colors[currentIndex];
+                        colors[currentIndex] = 0;
+                        continue;
+                    }
+                    else if (grid[altIndex] != ACID_L && grid[altIndex] != ACID_R) {
+                        grid[currentIndex] = AIR;
+                        grid[altIndex] = AIR;
+                        colors[currentIndex] = 0;
+                        colors[altIndex] = 0;
+                        continue;
                     }
                 }
             }
         }
     }
+}
 
     void draw(sf::RenderWindow& win){
         for(int y = 0; y <HEIGHT; ++y){
@@ -167,16 +309,40 @@ public:
                         cellColor = sf::Color(20,20,20);
                         break;
                     case SAND:
-                        cellColor = sf::Color(235,190,85);
+                        if(colors[index] == 0){
+                            cellColor = sf::Color(235,190,85);
+                        }
+                        else{cellColor = sf::Color(185, 135, 45);}
                         break;
                     case WATER:
-                        cellColor = sf::Color(127,255,212);
+                        if(colors[index]==0){
+                            cellColor = sf::Color(40, 160, 175);
+                        }
+                        else{cellColor = sf::Color(127,255,212);}
                         break;
                     case DIRT:
-                        cellColor = sf::Color(139, 69, 19);
+                        if(colors[index] == 0){
+                            cellColor = sf::Color(120,75,45);
+                        }
+                        else{cellColor = sf::Color(85, 50, 30);}
                         break;
                     case STONE:
-                        cellColor = sf::Color(211,211,211);
+                        if(colors[index]==0){
+                            cellColor = sf::Color(70,75,80);
+                        }
+                        else{cellColor = sf::Color(110,115,120);}
+                        break;
+                    case ACID_L:
+                        if(colors[index]==0){
+                            cellColor = sf::Color(143, 254, 9);
+                        }
+                        else{cellColor = sf::Color(45,140,5);}                        
+                        break;
+                    case ACID_R:
+                        if(colors[index]==0){
+                            cellColor = sf::Color(143, 254, 9);
+                        }
+                        else{cellColor = sf::Color(45,140,5);}      
                         break;
                 }
                 pixels[vIndex + 0].color = cellColor;

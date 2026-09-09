@@ -7,7 +7,7 @@ int main() {
 
     int panelHeight = 60;
     sf::RenderWindow window(sf::VideoMode(WIDTH * CELL_SIZE, HEIGHT * CELL_SIZE +60), "SandBox");
-    window.setFramerateLimit(60);
+    window.setFramerateLimit(140);
 
     SandBoxEngine engine;
     int brushSize = 2; 
@@ -42,6 +42,12 @@ int main() {
     Stonebtn.setOutlineThickness(3.f);
     Stonebtn.setOutlineColor(sf::Color::Black);
 
+    //Кислота
+    sf::RectangleShape Acidbtn(sf::Vector2f(60.f,40.f));
+    Acidbtn.setPosition(sf::Vector2f(340.f, (HEIGHT*CELL_SIZE) + 10.f));
+    Acidbtn.setFillColor(sf::Color(143, 254, 9));
+    Acidbtn.setOutlineThickness(3.f);
+    Acidbtn.setOutlineColor(sf::Color::Black);
 
     while (window.isOpen()) {
         float frameTime = clock.restart().asSeconds();
@@ -56,8 +62,9 @@ int main() {
 
             if (event.type == sf::Event::KeyPressed) {
                 if (event.key.code == sf::Keyboard::Num1) brushSize = 0; // Точечная кисть
-                if (event.key.code == sf::Keyboard::Num2) brushSize = 2; // Средняя
-                if (event.key.code == sf::Keyboard::Num3) brushSize = 5; // Большая
+                if (event.key.code == sf::Keyboard::Num2) brushSize = 5; // Средняя
+                if (event.key.code == sf::Keyboard::Num3) brushSize = 8; // Большая
+                if (event.key.code == sf::Keyboard::Num4) brushSize = 13; // Огромная
             }
         }
 
@@ -83,6 +90,9 @@ int main() {
                 else if(Stonebtn.getGlobalBounds().contains(mousePos.x,mousePos.y)){
                     currentItem = STONE;
                 }
+                else if(Acidbtn.getGlobalBounds().contains(mousePos.x,mousePos.y)){
+                    currentItem = ACID_L;
+                }
             }
         }
         else if(sf::Mouse::isButtonPressed(sf::Mouse::Right)){
@@ -103,28 +113,39 @@ int main() {
             Waterbtn.setOutlineColor(sf::Color::Black);
             Dirtbtn.setOutlineColor(sf::Color::Black);
             Stonebtn.setOutlineColor(sf::Color::Black);
+            Acidbtn.setOutlineColor(sf::Color::Black);
             break;
         case WATER:
             Sandbtn.setOutlineColor(sf::Color::Black);
             Waterbtn.setOutlineColor(sf::Color::White);
             Dirtbtn.setOutlineColor(sf::Color::Black);
             Stonebtn.setOutlineColor(sf::Color::Black);
+            Acidbtn.setOutlineColor(sf::Color::Black);
             break;
         case DIRT:
             Sandbtn.setOutlineColor(sf::Color::Black);
             Waterbtn.setOutlineColor(sf::Color::Black);
             Dirtbtn.setOutlineColor(sf::Color::White);
             Stonebtn.setOutlineColor(sf::Color::Black);
+            Acidbtn.setOutlineColor(sf::Color::Black);
             break;
         case STONE:
             Sandbtn.setOutlineColor(sf::Color::Black);
             Waterbtn.setOutlineColor(sf::Color::Black);
             Dirtbtn.setOutlineColor(sf::Color::Black);
             Stonebtn.setOutlineColor(sf::Color::White);
+            Acidbtn.setOutlineColor(sf::Color::Black);
+            break;
+        case ACID_L:
+            Sandbtn.setOutlineColor(sf::Color::Black);
+            Waterbtn.setOutlineColor(sf::Color::Black);
+            Dirtbtn.setOutlineColor(sf::Color::Black);
+            Stonebtn.setOutlineColor(sf::Color::Black);
+            Acidbtn.setOutlineColor(sf::Color::White);
             break;
         }
 
-        if (frameCount >= 60) { 
+        if (frameCount >= 140) { 
             window.setTitle("SandBox | FPS: " + std::to_string(static_cast<int>(fps)));
             frameCount = 0;
         }     
@@ -140,6 +161,7 @@ int main() {
         window.draw(Waterbtn);
         window.draw(Dirtbtn);
         window.draw(Stonebtn);
+        window.draw(Acidbtn);
 
         window.display();
     }
