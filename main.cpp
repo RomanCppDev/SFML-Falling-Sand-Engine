@@ -1,6 +1,21 @@
 #include <SFML/Graphics.hpp>
 #include "engine.h"
 
+struct ElementButton{
+    int elementType;
+    sf::Sprite sprite;
+    sf::Texture texture;
+    std::wstring name;
+    bool isHovered = false;
+};
+
+void loadTexture(ElementButton& btn, std::string path){
+    if(btn.texture.loadFromFile("textures/" + path)){
+        btn.sprite.setTexture(btn.texture);
+        btn.sprite.setScale(80.f / btn.texture.getSize().x, 80.f / btn.texture.getSize().y);
+    }
+}
+
 int main() {
     sf::Clock clock;
     static int frameCount = 0;
@@ -14,40 +29,55 @@ int main() {
     int currentItem = 1;
 
     //---КНОПКИ---//
+    
     //Песок
-    sf::RectangleShape Sandbtn(sf::Vector2f(60.f,40.f));
-    Sandbtn.setPosition(sf::Vector2f(20.f, (HEIGHT*CELL_SIZE)+10.f));
-    Sandbtn.setFillColor(sf::Color(235,190,85));
-    Sandbtn.setOutlineThickness(3.f);
-    Sandbtn.setOutlineColor(sf::Color::Black);
+    ElementButton sandBtn;
+    sandBtn.elementType = SAND;
+    sandBtn.name = L"Песок";
+    loadTexture(sandBtn, "sand.png");
+    sandBtn.sprite.setPosition(10.f, (HEIGHT * CELL_SIZE) - 5.f);
 
     //Вода
-    sf::RectangleShape Waterbtn(sf::Vector2f(60.f,40.f));
-    Waterbtn.setPosition(sf::Vector2f(100.f,(HEIGHT*CELL_SIZE)+10.f)); 
-    Waterbtn.setFillColor(sf::Color(127,255,212));
-    Waterbtn.setOutlineThickness(3.0f);
-    Waterbtn.setOutlineColor(sf::Color::Black);
+    ElementButton waterBtn;
+    waterBtn.elementType = WATER;
+    waterBtn.name = L"Вода";
+    loadTexture(waterBtn, "water.png");
+    waterBtn.sprite.setPosition(sf::Vector2f(90.f, (HEIGHT*CELL_SIZE) -5.f));
 
     //Земля
-    sf::RectangleShape Dirtbtn(sf::Vector2f(60.f,40.f));
-    Dirtbtn.setPosition(sf::Vector2f(180.f,(HEIGHT*CELL_SIZE)+10.f)); 
-    Dirtbtn.setFillColor(sf::Color(139, 69, 19));                   
-    Dirtbtn.setOutlineThickness(3.0f);
-    Dirtbtn.setOutlineColor(sf::Color::Black);
+    ElementButton dirtBtn;
+    dirtBtn.elementType = DIRT;
+    dirtBtn.name = L"Земля";
+    loadTexture(dirtBtn, "dirt.png");
+    dirtBtn.sprite.setPosition(sf::Vector2f(170.f, (HEIGHT*CELL_SIZE) -5.f));
 
     //Камень
-    sf::RectangleShape Stonebtn(sf::Vector2f(60.f,40.f));
-    Stonebtn.setPosition(sf::Vector2f(260.f,(HEIGHT*CELL_SIZE)+10.f)); 
-    Stonebtn.setFillColor(sf::Color(211, 211, 211));                
-    Stonebtn.setOutlineThickness(3.f);
-    Stonebtn.setOutlineColor(sf::Color::Black);
+    ElementButton stoneBtn;
+    stoneBtn.elementType = DIRT;
+    stoneBtn.name = L"Камень";
+    loadTexture(stoneBtn, "stone.png");
+    stoneBtn.sprite.setPosition(sf::Vector2f(250.f, (HEIGHT*CELL_SIZE) - 5.f));
 
     //Кислота
-    sf::RectangleShape Acidbtn(sf::Vector2f(60.f,40.f));
-    Acidbtn.setPosition(sf::Vector2f(340.f, (HEIGHT*CELL_SIZE) + 10.f));
-    Acidbtn.setFillColor(sf::Color(143, 254, 9));
-    Acidbtn.setOutlineThickness(3.f);
-    Acidbtn.setOutlineColor(sf::Color::Black);
+    ElementButton acidBtn;
+    acidBtn.elementType = ACID_L;
+    acidBtn.name = L"Кислота";
+    loadTexture(acidBtn, "acid.png");
+    acidBtn.sprite.setPosition(sf::Vector2f(330.f, (HEIGHT*CELL_SIZE) - 5.f));
+
+    //Огонь
+    ElementButton fireBtn;
+    fireBtn.elementType = FIRE;
+    fireBtn.name = L"Огонь";
+    loadTexture(fireBtn, "fire.png");
+    fireBtn.sprite.setPosition(sf::Vector2f(410.f, (HEIGHT*CELL_SIZE)));
+    fireBtn.sprite.setScale(60.f / fireBtn.texture.getSize().x, 60.f / fireBtn.texture.getSize().y);
+
+    // sf::RectangleShape Firebtn(sf::Vector2f(60.f,40.f));
+    // Firebtn.setPosition(sf::Vector2f(420.f, (HEIGHT*CELL_SIZE) + 10.f));
+    // Firebtn.setFillColor(sf::Color(255, 69, 0));
+    // Firebtn.setOutlineThickness(3.f);
+    // Firebtn.setOutlineColor(sf::Color::Black);
 
     while (window.isOpen()) {
         float frameTime = clock.restart().asSeconds();
@@ -78,20 +108,23 @@ int main() {
                 engine.addBlock(gridX,gridY,brushSize,currentItem);
             }
             else{
-                if(Sandbtn.getGlobalBounds().contains(mousePos.x,mousePos.y)){
+                if(sandBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
                     currentItem = SAND;
                 }
-                else if(Waterbtn.getGlobalBounds().contains(mousePos.x,mousePos.y)){
+                else if(waterBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
                     currentItem = WATER;
                 }
-                else if(Dirtbtn.getGlobalBounds().contains(mousePos.x,mousePos.y)){
+                else if(dirtBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
                     currentItem = DIRT;
                 }
-                else if(Stonebtn.getGlobalBounds().contains(mousePos.x,mousePos.y)){
+                else if(stoneBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
                     currentItem = STONE;
                 }
-                else if(Acidbtn.getGlobalBounds().contains(mousePos.x,mousePos.y)){
+                else if(acidBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
                     currentItem = ACID_L;
+                }
+                else if(fireBtn.sprite.getGlobalBounds().contains(mousePos.x, mousePos.y)){
+                    currentItem = FIRE;
                 }
             }
         }
@@ -109,40 +142,52 @@ int main() {
         switch (currentItem)
         {
         case SAND:
-            Sandbtn.setOutlineColor(sf::Color::White);
-            Waterbtn.setOutlineColor(sf::Color::Black);
-            Dirtbtn.setOutlineColor(sf::Color::Black);
-            Stonebtn.setOutlineColor(sf::Color::Black);
-            Acidbtn.setOutlineColor(sf::Color::Black);
+            sandBtn.sprite.setColor(sf::Color::White);
+            waterBtn.sprite.setColor(sf::Color(120, 120, 120));
+            dirtBtn.sprite.setColor(sf::Color(120,120,120));
+            stoneBtn.sprite.setColor(sf::Color(120,120,120));
+            acidBtn.sprite.setColor(sf::Color(120,120,120));
+            fireBtn.sprite.setColor(sf::Color(120,120,120));
             break;
         case WATER:
-            Sandbtn.setOutlineColor(sf::Color::Black);
-            Waterbtn.setOutlineColor(sf::Color::White);
-            Dirtbtn.setOutlineColor(sf::Color::Black);
-            Stonebtn.setOutlineColor(sf::Color::Black);
-            Acidbtn.setOutlineColor(sf::Color::Black);
+            sandBtn.sprite.setColor(sf::Color(120, 120, 120));
+            waterBtn.sprite.setColor(sf::Color::White);
+            dirtBtn.sprite.setColor(sf::Color(120,120,120));
+            stoneBtn.sprite.setColor(sf::Color(120,120,120));
+            acidBtn.sprite.setColor(sf::Color(120,120,120));
+            fireBtn.sprite.setColor(sf::Color(120,120,120));
             break;
         case DIRT:
-            Sandbtn.setOutlineColor(sf::Color::Black);
-            Waterbtn.setOutlineColor(sf::Color::Black);
-            Dirtbtn.setOutlineColor(sf::Color::White);
-            Stonebtn.setOutlineColor(sf::Color::Black);
-            Acidbtn.setOutlineColor(sf::Color::Black);
+            sandBtn.sprite.setColor(sf::Color(120, 120, 120));
+            waterBtn.sprite.setColor(sf::Color(120, 120, 120));
+            dirtBtn.sprite.setColor(sf::Color::White);
+            stoneBtn.sprite.setColor(sf::Color(120,120,120));
+            acidBtn.sprite.setColor(sf::Color(120,120,120));
+            fireBtn.sprite.setColor(sf::Color(120,120,120));
             break;
         case STONE:
-            Sandbtn.setOutlineColor(sf::Color::Black);
-            Waterbtn.setOutlineColor(sf::Color::Black);
-            Dirtbtn.setOutlineColor(sf::Color::Black);
-            Stonebtn.setOutlineColor(sf::Color::White);
-            Acidbtn.setOutlineColor(sf::Color::Black);
+            sandBtn.sprite.setColor(sf::Color(120, 120, 120));
+            waterBtn.sprite.setColor(sf::Color(120, 120, 120));
+            dirtBtn.sprite.setColor(sf::Color(120,120,120));
+            stoneBtn.sprite.setColor(sf::Color::White);
+            acidBtn.sprite.setColor(sf::Color(120,120,120));
+            fireBtn.sprite.setColor(sf::Color(120,120,120));
             break;
         case ACID_L:
-            Sandbtn.setOutlineColor(sf::Color::Black);
-            Waterbtn.setOutlineColor(sf::Color::Black);
-            Dirtbtn.setOutlineColor(sf::Color::Black);
-            Stonebtn.setOutlineColor(sf::Color::Black);
-            Acidbtn.setOutlineColor(sf::Color::White);
+            sandBtn.sprite.setColor(sf::Color(120, 120, 120));
+            waterBtn.sprite.setColor(sf::Color(120, 120, 120));
+            dirtBtn.sprite.setColor(sf::Color(120,120,120));
+            stoneBtn.sprite.setColor(sf::Color(120,120,120));
+            acidBtn.sprite.setColor(sf::Color::White);
+            fireBtn.sprite.setColor(sf::Color(120,120,120));
             break;
+        case FIRE:
+            fireBtn.sprite.setColor(sf::Color::White);
+            waterBtn.sprite.setColor(sf::Color(120, 120, 120));
+            dirtBtn.sprite.setColor(sf::Color(120,120,120));
+            stoneBtn.sprite.setColor(sf::Color(120,120,120));
+            acidBtn.sprite.setColor(sf::Color(120,120,120));
+            sandBtn.sprite.setColor(sf::Color(120, 120, 120));
         }
 
         if (frameCount >= 140) { 
@@ -157,11 +202,12 @@ int main() {
         window.clear();
         engine.draw(window);
 
-        window.draw(Sandbtn);
-        window.draw(Waterbtn);
-        window.draw(Dirtbtn);
-        window.draw(Stonebtn);
-        window.draw(Acidbtn);
+        window.draw(sandBtn.sprite);
+        window.draw(waterBtn.sprite);
+        window.draw(dirtBtn.sprite);
+        window.draw(stoneBtn.sprite);
+        window.draw(acidBtn.sprite);
+        window.draw(fireBtn.sprite);
 
         window.display();
     }
