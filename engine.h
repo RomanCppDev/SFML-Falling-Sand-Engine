@@ -349,31 +349,32 @@ public:
 
                     if (std::rand() % 100 < 30) {
         
-                    int dirX = (std::rand() % 3) - 1;
-                    int tx = x + dirX;
-                    int ty = y - 1; 
+                        int dirX = (std::rand() % 3) - 1;
+                        int tx = x + dirX;
+                        int ty = y - 1; 
 
-                    if (isVaild(tx, ty) && grid[getIndex(tx, ty)] == AIR) {
-                        int targetIndex = getIndex(tx, ty);
-                        grid[currentIndex] = AIR;
-                        grid[targetIndex] = SMOKE;
-
-                        colors[targetIndex] = colors[currentIndex];
-                        colors[currentIndex] = 0;
-                    }
-                    else {
-                        int sideX = x + ((std::rand() % 2 == 0) ? -1 : 1);
-                        if (isVaild(sideX, y) && grid[getIndex(sideX, y)] == AIR) {
-                            int targetIndex = getIndex(sideX, y);
+                        if (isVaild(tx, ty) && grid[getIndex(tx, ty)] == AIR) {
+                            int targetIndex = getIndex(tx, ty);
                             grid[currentIndex] = AIR;
                             grid[targetIndex] = SMOKE;
 
                             colors[targetIndex] = colors[currentIndex];
-                            colors[currentIndex] = 0;}
+                            colors[currentIndex] = 0;
+                        }
+                        else {
+                            int sideX = x + ((std::rand() % 2 == 0) ? -1 : 1);
+                            if (isVaild(sideX, y) && grid[getIndex(sideX, y)] == AIR) {
+                                int targetIndex = getIndex(sideX, y);
+                                grid[currentIndex] = AIR;
+                                grid[targetIndex] = SMOKE;
+
+                                colors[targetIndex] = colors[currentIndex];
+                                colors[currentIndex] = 0;
+                            }
                         }
                     }
                 }
-
+\
             }
         }
     }
