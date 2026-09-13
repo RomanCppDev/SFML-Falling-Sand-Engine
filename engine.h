@@ -21,8 +21,8 @@ enum Element{
 
 class SandBoxEngine{
 private:
-    std::vector<int> grid;
-    std::vector<int> colors;
+    std::vector<unsigned short> grid;
+    std::vector<unsigned short> colors;
     sf::VertexArray pixels;
 
     int getIndex(int x, int y){
@@ -46,31 +46,34 @@ public:
     }
 
     void addBlock(int mouseX, int mouseY, int brushSize, int BlockId) {
-    for (int dy = -brushSize; dy <= brushSize; ++dy) {
-        for (int dx = -brushSize; dx <= brushSize; ++dx) {
-            int nx = mouseX + dx;
-            int ny = mouseY + dy;
+        for (int dy = -brushSize; dy <= brushSize; ++dy) {
+            for (int dx = -brushSize; dx <= brushSize; ++dx) {
+                int nx = mouseX + dx;
+                int ny = mouseY + dy;
             
-            if (!isVaild(nx, ny)) continue;
-            int index = getIndex(nx, ny);
+                if (!isVaild(nx, ny)) continue;
+                int index = getIndex(nx, ny);
 
-            if (BlockId == FIRE) {
-                if (grid[index] == DIRT) {
-                    grid[index] = FIRE;
+                if (BlockId == FIRE) {
+                    if (grid[index] == DIRT) {
+                        grid[index] = FIRE;
+                    }
                 }
-            }
-            else if (BlockId == AIR || grid[index] == AIR) {
-                if (BlockId == ACID_L) {
-                    grid[index] = (std::rand() % 2 == 0) ? ACID_L : ACID_R;
-                } else {
-                    grid[index] = BlockId;
-                    colors[index] = std::rand() % 2;
+                else if (BlockId == AIR || grid[index] == AIR) {
+                    if (BlockId == ACID_L) {
+                        grid[index] = (std::rand() % 2 == 0) ? ACID_L : ACID_R;
+                    } else {
+                        grid[index] = BlockId;
+                        colors[index] = std::rand() % 2;
+                    }
                 }
             }
         }
     }
-}
 
+    void ClearGrid(){
+        std::fill(grid.begin(), grid.end(), AIR);
+    }
 
     // Логика обновления блоков
     void update(){
@@ -91,6 +94,19 @@ public:
 
                         colors[currentIndex] = color;
                         colors[getIndex(x,y+1)] = 0;
+                    }
+
+                    if(isVaild(x,y+1) && grid[getIndex(x,y+1)] == WATER){
+                        unsigned short temp;
+
+                        temp = grid[currentIndex];
+                        grid[currentIndex] = grid[getIndex(x,y+1)];
+                        grid[getIndex(x,y+1)] = temp;
+
+                        temp = colors[currentIndex];
+                        colors[currentIndex] = colors[getIndex(x,y+1)];
+                        colors[getIndex(x,y+1)] = temp;
+                        continue;;
                     }
 
                     if(isVaild(x,y+1) && grid[getIndex(x,y+1)] == AIR){
@@ -184,9 +200,6 @@ public:
                         if (currentX != x) {
                             grid[currentIndex] = AIR;
                             grid[getIndex(currentX, y)] = WATER;
-
-                            // colors[getIndex(currentX,y)] = colors[currentIndex];
-                            // colors[currentIndex] = color;
                         }
                     }
                 }
@@ -198,6 +211,19 @@ public:
 
                             colors[currentIndex] = color;
                             colors[getIndex(x,y+1)] = 0;
+                    }
+
+                    if(isVaild(x,y+1) && grid[getIndex(x,y+1)] == WATER){
+                        unsigned short temp;
+
+                        temp = grid[currentIndex];
+                        grid[currentIndex] = grid[getIndex(x,y+1)];
+                        grid[getIndex(x,y+1)] = temp;
+
+                        temp = colors[currentIndex];
+                        colors[currentIndex] = colors[getIndex(x,y+1)];
+                        colors[getIndex(x,y+1)] = temp;
+                        continue;;
                     }
 
                     if(isVaild(x,y+1) && grid[getIndex(x, y + 1)] == AIR){
@@ -299,13 +325,35 @@ public:
                         continue;
                     }
 
-                    //--Распростронение огня--
+                    //Ближайшие соседи
+                    int dx[] = {-1,  0,  1, -1, 1, -1, 0, 1};
+                    int dy[] = {-1, -1, -1,  0, 0,  1, 1, 1};
+
+                    //Тушение огня
+                    bool isExtinguished = false;
+                    for (int i = 0; i < 8; ++i) {
+                        int targetX = x + dx[i];
+                        int targetY = y + dy[i];
+
+                        if (isVaild(targetX, targetY)) {
+                            int targetIndex = getIndex(targetX, targetY);
+            
+                            if (grid[targetIndex] == WATER) { 
+                                grid[currentIndex] = AIR; 
+                                grid[targetIndex] = SMOKE;    
+                    
+                                colors[currentIndex] = 0; 
+                                colors[targetIndex] = color; 
+                
+                                isExtinguished = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    //Распростронение огня
                     if(std::rand() % 5 == 0)
                     {
-                        // Соседи для распростронения
-                        int dx[] = {-1,  0,  1, -1, 1, -1, 0, 1};
-                        int dy[] = {-1, -1, -1,  0, 0,  1, 1, 1};
-
                         int dir = std::rand() % 8;
 
                         for (int i = 0; i < 8; ++i) {
@@ -323,12 +371,6 @@ public:
                             }
                         }
                     }
-                        
-
-                    //Тушение огня
-                    // if(){
-
-                    // }
                 }
 
                 //Дым
@@ -374,7 +416,6 @@ public:
                         }
                     }
                 }
-\
             }
         }
     }
