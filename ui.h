@@ -264,11 +264,7 @@ public:
             fireBtn.sprite.setColor(sf::Color::White);
         }
         else if(trashBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
-<<<<<<< HEAD
             engine.FillGrid(AIR);
-=======
-            engine.ClearGrid();
->>>>>>> 6e37262592c1f47478aa020d29a780b879a91604
         }
     }
 
