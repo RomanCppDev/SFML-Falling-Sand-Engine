@@ -244,12 +244,15 @@ private:
                 colors[currentIndex] = color;
                 updatePixelVertices(currentIndex, getCellColor(AIR));
                 updatePixelVertices(downIndex, getCellColor(currentType, color));
+                activeNeighbors(x, y+1);
                 return; 
             } else if (grid[downIndex] != ACID_L && grid[downIndex] != ACID_R) {
                 grid[currentIndex] = AIR; 
                 grid[downIndex] = AIR;
                 updatePixelVertices(currentIndex, getCellColor(AIR));
                 updatePixelVertices(downIndex, getCellColor(AIR));
+                activeNeighbors(x, y+1);
+                activeNeighbors(x, y);
                 return;
             }
         }
@@ -266,12 +269,14 @@ private:
                 colors[currentIndex] = color;
                 updatePixelVertices(currentIndex, getCellColor(AIR));
                 updatePixelVertices(sideIndex, getCellColor(currentType, color));
+                activeNeighbors(sideX, y);
                 return;
             } else if (grid[sideIndex] != ACID_L && grid[sideIndex] != ACID_R) {
                 grid[currentIndex] = AIR; 
                 grid[sideIndex] = AIR;
                 updatePixelVertices(currentIndex, getCellColor(AIR));
                 updatePixelVertices(sideIndex, getCellColor(AIR));
+                activeNeighbors(sideX, y);
                 return;
             }
         }
@@ -287,17 +292,17 @@ private:
                 colors[currentIndex] = color;
                 updatePixelVertices(currentIndex, getCellColor(AIR));
                 updatePixelVertices(altIndex, getCellColor(currentType, color));
+                activeNeighbors(altX, y);
                 return;
             } else if (grid[altIndex] != ACID_L && grid[altIndex] != ACID_R) {
                 grid[currentIndex] = AIR; 
                 grid[altIndex] = AIR;
                 updatePixelVertices(currentIndex, getCellColor(AIR));
                 updatePixelVertices(altIndex, getCellColor(AIR));
+                activeNeighbors(altX, y);
                 return;
             }
         }
-
-        activeGrid[currentIndex] = false;
     }
 
     void updateFire(int x, int y, int currentIndex, int color){
