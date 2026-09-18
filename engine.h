@@ -8,21 +8,23 @@ const int HEIGHT = 225;
 const int CELL_SIZE = 3;
 
 enum Element{
-    AIR = 0,
-    SAND = 1,
-    WATER = 2,
-    STONE = 3,
-    DIRT = 4,
-    FIRE = 5,
-    ACID_L = 6,
-    ACID_R = 7,
-    SMOKE = 8,
+    AIR    = 0,        
+    SAND   = 1,  
+    WATER  = 2,   
+    STONE  = 3,   
+    DIRT   = 4, 
+    FIRE   = 5,  
+    ACID_L = 6,  
+    ACID_R = 7,  
+    SMOKE  = 8,   
 };
+
 
 class SandBoxEngine{
 private:
     std::vector<unsigned short> grid;
     std::vector<unsigned short> colors;
+    std::vector<bool> activeGrid;
     sf::VertexArray pixels;
 
     int getIndex(int x, int y){
@@ -33,11 +35,55 @@ private:
         return (x>=0 && x <WIDTH && y >= 0 && y < HEIGHT);
     }
 
-    inline void moveElement(int from, int to, int type, int oldColor, int newColor){
+    typedef void (SandBoxEngine::*ElementUpdateFunc)(int x, int y, int index, int color);
+    ElementUpdateFunc updateFunctions[9];
+
+    sf::Color getCellColor(int type, int colorBit = 0){
+        switch (type){
+            case AIR: return sf::Color(20, 20, 20); break;
+            case SAND: return (colorBit == 0) ? sf::Color(235,190,85) : sf::Color(185, 135, 45); break;
+            case WATER: return (colorBit == 0) ? sf::Color(40, 160, 175) : sf::Color(127, 255, 212); break;
+            case STONE: return (colorBit == 0) ? sf::Color(70, 75, 80) : sf::Color(110, 115, 120); break;
+            case ACID_L: case ACID_R: return (colorBit == 0) ? sf::Color(143, 254, 9) : sf::Color(45, 140, 5); break; 
+            case FIRE: return (colorBit == 0) ? sf::Color(255, 69, 0) : sf::Color(255, 140, 0); break;
+            case SMOKE: return (colorBit == 0) ? sf::Color(80, 80, 80) : sf::Color(120, 120, 120); break;
+            case DIRT: return (colorBit == 0) ? sf::Color(120, 75, 45) : sf::Color(85, 50, 30); break;
+        }
+        return sf::Color::Black;
+    }
+
+    void activeNeighbors(int x, int y){
+        int dx[] = {-1, 0, 1, -1, 1, -1, 0, 1};
+        int dy[] = {-1, -1, -1, 0, 0, 1, 1, 1};
+
+        for(int i = 0; i < 8; ++i){
+            int tx = x+dx[i], ty = y+dy[i];
+
+            if(isVaild(tx, ty)){
+                activeGrid[getIndex(tx, ty)] = true;
+            }
+        }
+    }
+
+    void updatePixelVertices(int index, sf::Color cellColor) {
+        int vIndex = index * 4;
+        pixels[vIndex + 0].color = cellColor;
+        pixels[vIndex + 1].color = cellColor;
+        pixels[vIndex + 2].color = cellColor;
+        pixels[vIndex + 3].color = cellColor;
+    }
+
+    inline void moveElement(int x, int y, int to, int type, int oldColor, int newColor){
+        int from = getIndex(x, y);
+        activeNeighbors(x, y);
+
         grid[from] = AIR;
         grid[to] = type;
         colors[to] = oldColor;
         colors[from] = newColor;
+
+        updatePixelVertices(from, getCellColor(AIR, newColor));
+        updatePixelVertices(to, getCellColor(type, oldColor));
     }
 
     bool AcidAtTheBottom(int currentIndex, int x, int y, int color){
@@ -78,7 +124,7 @@ private:
         if(WaterAtTheBottom(currentIndex, x, y)) return;
 
         if(isVaild(x,y+1) && grid[getIndex(x,y+1)] == AIR){
-            moveElement(currentIndex, downIdx, SAND, colors[currentIndex], color);
+            moveElement(x, y, downIdx, SAND, colors[currentIndex], color);
             return;
         }
 
@@ -87,11 +133,11 @@ private:
         int diagR = getIndex(x + sideDir, y+1);
 
         if(isVaild(x - sideDir, y+1) && grid[diagL] == AIR) {
-            moveElement(currentIndex, downIdx, SAND, colors[currentIndex], color);
+            moveElement(x, y, diagL, SAND, colors[currentIndex], color);
             return;
         }
         if(isVaild(x + sideDir, y+1) && grid[diagR] == AIR){
-            moveElement(currentIndex, downIdx, SAND, colors[currentIndex], color);
+            moveElement(x, y, diagR, SAND, colors[currentIndex], color);
             return;
         }
 
@@ -113,6 +159,8 @@ private:
                 }
             }
         }
+
+        activeGrid[currentIndex] = false;
     }
 
     void updateWater(int x, int y, int currentIndex, int color){
@@ -120,7 +168,7 @@ private:
 
         int downIdx = getIndex(x, y+1);
         if(isVaild(x, y+1) && grid[downIdx] == AIR){
-            moveElement(currentIndex, downIdx, WATER, colors[currentIndex], color);
+            moveElement(x, y, downIdx, WATER, colors[currentIndex], color);
             return;
         }
 
@@ -130,11 +178,11 @@ private:
         int diagR = x - sideDir;
 
         if(isVaild(diagL, y+1) && grid[getIndex(diagL, y+1)] == AIR){
-            moveElement(currentIndex, getIndex(diagL, y+1), WATER, colors[currentIndex], color);
+            moveElement(x, y, getIndex(diagL, y+1), WATER, colors[currentIndex], color);
             return;
         }
         if(isVaild(diagR, y+1) && grid[getIndex(diagR, y+1)] == AIR){
-            moveElement(currentIndex, getIndex(diagR, y+1), WATER, colors[currentIndex], color);
+            moveElement(x, y, getIndex(diagR, y+1), WATER, colors[currentIndex], color);
             return;
         }
 
@@ -151,9 +199,11 @@ private:
         }
 
         if(currentX != x){
-            moveElement(currentIndex, getIndex(currentX, y), WATER, colors[currentIndex], color);
+            moveElement(x, y, getIndex(currentX, y), WATER, colors[currentIndex], color);
             return;
         }
+
+        activeGrid[currentIndex] = false;
     }
 
     void updateDirt(int x, int y, int currentIndex, int color){
@@ -162,7 +212,7 @@ private:
 
         int downIdx = getIndex(x, y+1);
         if(isVaild(x, y+1) && grid[downIdx] == AIR){
-            moveElement(currentIndex, downIdx, DIRT, colors[currentIndex], color);
+            moveElement(x, y, downIdx, DIRT, colors[currentIndex], color);
             return;
         }
 
@@ -171,13 +221,15 @@ private:
         int diagR = x-sideDir;
 
         if(isVaild(diagL, y+1) && grid[getIndex(diagL, y+1)] == AIR){
-            moveElement(currentIndex, getIndex(diagL, y+1), DIRT, colors[currentIndex], color);
+            moveElement(x, y, getIndex(diagL, y+1), DIRT, colors[currentIndex], color);
             return;
         }
         if(isVaild(diagR, y+1) && grid[getIndex(diagR, y+1)] == AIR){
-            moveElement(currentIndex, getIndex(diagR, y+1), DIRT, colors[currentIndex], color);
+            moveElement(x, y, getIndex(diagR, y+1), DIRT, colors[currentIndex], color);
             return;
         }
+
+        activeGrid[currentIndex] = false;
     }
 
     void updateAcid(int x, int y, int currentIndex, int color) {
@@ -190,10 +242,14 @@ private:
                 grid[downIndex] = currentType;
                 colors[downIndex] = colors[currentIndex]; 
                 colors[currentIndex] = color;
+                updatePixelVertices(currentIndex, getCellColor(AIR));
+                updatePixelVertices(downIndex, getCellColor(currentType, color));
                 return; 
             } else if (grid[downIndex] != ACID_L && grid[downIndex] != ACID_R) {
                 grid[currentIndex] = AIR; 
                 grid[downIndex] = AIR;
+                updatePixelVertices(currentIndex, getCellColor(AIR));
+                updatePixelVertices(downIndex, getCellColor(AIR));
                 return;
             }
         }
@@ -208,10 +264,14 @@ private:
                 grid[sideIndex] = (dir == -1) ? ACID_L : ACID_R; 
                 colors[sideIndex] = colors[currentIndex]; 
                 colors[currentIndex] = color;
+                updatePixelVertices(currentIndex, getCellColor(AIR));
+                updatePixelVertices(sideIndex, getCellColor(currentType, color));
                 return;
             } else if (grid[sideIndex] != ACID_L && grid[sideIndex] != ACID_R) {
                 grid[currentIndex] = AIR; 
                 grid[sideIndex] = AIR;
+                updatePixelVertices(currentIndex, getCellColor(AIR));
+                updatePixelVertices(sideIndex, getCellColor(AIR));
                 return;
             }
         }
@@ -225,18 +285,32 @@ private:
                 grid[altIndex] = (dir == 1) ? ACID_L : ACID_R; 
                 colors[altIndex] = colors[currentIndex]; 
                 colors[currentIndex] = color;
+                updatePixelVertices(currentIndex, getCellColor(AIR));
+                updatePixelVertices(altIndex, getCellColor(currentType, color));
                 return;
             } else if (grid[altIndex] != ACID_L && grid[altIndex] != ACID_R) {
                 grid[currentIndex] = AIR; 
                 grid[altIndex] = AIR;
+                updatePixelVertices(currentIndex, getCellColor(AIR));
+                updatePixelVertices(altIndex, getCellColor(AIR));
                 return;
             }
         }
+
+        activeGrid[currentIndex] = false;
     }
 
     void updateFire(int x, int y, int currentIndex, int color){
         if(std::rand()%100 < 5){
-            grid[currentIndex] = (std::rand() % 2 == 0) ? SMOKE : AIR;
+            if (std::rand() % 2 == 0) {
+                grid[currentIndex] = SMOKE;
+                activeNeighbors(x, y);
+                updatePixelVertices(currentIndex, getCellColor(SMOKE, colors[currentIndex]));
+            } else {
+                grid[currentIndex] = AIR;
+                activeNeighbors(x, y);
+                updatePixelVertices(currentIndex, getCellColor(AIR));
+            }
             return;
         }
 
@@ -253,9 +327,17 @@ private:
                 int targetIndex = getIndex(targetX, targetY);
             
                 if (grid[targetIndex] == WATER) { 
-                    moveElement(currentIndex, targetIndex, SMOKE, colors[targetIndex], color);
+                    grid[currentIndex] = SMOKE;
+                    grid[targetIndex] = AIR;
+                    colors[currentIndex] = color;
+                    colors[targetIndex] = 0;
+
                     isExtinguished = true;
-                    break;
+                    updatePixelVertices(currentIndex, getCellColor(SMOKE, colors[currentIndex]));
+                    updatePixelVertices(targetIndex, getCellColor(AIR));
+                    activeNeighbors(x, y);
+                    activeNeighbors(targetX, targetY);
+                    return;
                 }
             }
         }
@@ -274,6 +356,9 @@ private:
 
                     if (grid[targetIndex] == DIRT) {
                         grid[targetIndex] = FIRE;
+                        colors[targetIndex] = std::rand() % 2;
+                        updatePixelVertices(targetIndex, getCellColor(FIRE, colors[targetIndex]));
+                        activeNeighbors(x, y);
                         break;
                     }
                 }
@@ -285,6 +370,7 @@ private:
         if (std::rand() % 100 < 1) { 
             grid[currentIndex] = AIR;
             colors[currentIndex] = 0;
+            updatePixelVertices(currentIndex, getCellColor(AIR));
             return;
         }
 
@@ -292,6 +378,7 @@ private:
             if (std::rand() % 100 < 15) {
                 grid[currentIndex] = AIR;
                 colors[currentIndex] = 0;
+                updatePixelVertices(currentIndex, getCellColor(AIR));
             }    
             return;
         }
@@ -304,14 +391,18 @@ private:
 
             if (isVaild(tx, ty) && grid[getIndex(tx, ty)] == AIR) {
                 int targetIndex = getIndex(tx, ty);
-                moveElement(currentIndex, targetIndex, SMOKE, colors[currentIndex], color);
+                moveElement(x, y, targetIndex, SMOKE, colors[currentIndex], color);
+                updatePixelVertices(currentIndex, getCellColor(AIR));
+                updatePixelVertices(targetIndex, getCellColor(SMOKE, color));
                 return;
             }
             else {
                 int sideX = x + ((std::rand() % 2 == 0) ? -1 : 1);
                 if (isVaild(sideX, y) && grid[getIndex(sideX, y)] == AIR) {
                     int targetIndex = getIndex(sideX, y);
-                    moveElement(currentIndex, targetIndex, SMOKE, colors[currentIndex], color);
+                    moveElement(x, y, targetIndex, SMOKE, colors[currentIndex], color);
+                    updatePixelVertices(currentIndex, getCellColor(AIR));
+                    updatePixelVertices(targetIndex, getCellColor(SMOKE, color));
                     return;
                 }
             }
@@ -321,9 +412,20 @@ private:
 public:
     SandBoxEngine(){
         grid.assign(WIDTH*HEIGHT, AIR);
-        colors.assign(WIDTH*HEIGHT, AIR);
+        colors.assign(WIDTH*HEIGHT, 0);
+        activeGrid.assign(WIDTH*HEIGHT, true);
         pixels.setPrimitiveType(sf::PrimitiveType::Quads);
         pixels.resize(WIDTH*HEIGHT*4);
+
+        updateFunctions[AIR] = nullptr;
+        updateFunctions[SAND] = &SandBoxEngine::updateSand;
+        updateFunctions[WATER] = &SandBoxEngine::updateWater;
+        updateFunctions[DIRT] = &SandBoxEngine::updateDirt;
+        updateFunctions[STONE] = nullptr;
+        updateFunctions[FIRE] = &SandBoxEngine::updateFire;
+        updateFunctions[ACID_L] = &SandBoxEngine::updateAcid;
+        updateFunctions[ACID_R] = &SandBoxEngine::updateAcid;
+        updateFunctions[SMOKE] = &SandBoxEngine::updateSmoke;
 
         for(int y = 0; y < HEIGHT; ++y){
             for(int x = 0; x < WIDTH; ++x){
@@ -341,11 +443,13 @@ public:
                 pixels[vIndex + 3].position = sf::Vector2f(left, bottom);
 
                 colors[index] = std::rand() % 2;
+
+                updatePixelVertices(index, getCellColor(AIR, colors[index]));
             }
         }
     }
 
-    void addBlock(int mouseX, int mouseY, int brushSize, int BlockId) {
+    void addBlock(int mouseX, int mouseY, int brushSize, unsigned int BlockId) {
         for (int dy = -brushSize; dy <= brushSize; ++dy) {
             for (int dx = -brushSize; dx <= brushSize; ++dx) {
                 int nx = mouseX + dx;
@@ -353,19 +457,28 @@ public:
             
                 if (!isVaild(nx, ny)) continue;
                 int index = getIndex(nx, ny);
+                bool blockChanged = false;
 
                 if (BlockId == FIRE) {
                     if (grid[index] == DIRT) {
                         grid[index] = FIRE;
+                        blockChanged = true;
                     }
                 }
                 else if (BlockId == AIR || grid[index] == AIR) {
                     if (BlockId == ACID_L) {
                         grid[index] = (std::rand() % 2 == 0) ? ACID_L : ACID_R;
+                        blockChanged = true;
                     } else {
                         grid[index] = BlockId;
                         colors[index] = std::rand() % 2;
+                        blockChanged = true;
+
+                        updatePixelVertices(index, getCellColor(BlockId, colors[index]));
                     }
+                }
+                if(blockChanged){
+                    activeNeighbors(nx, ny);
                 }
             }
         }
@@ -374,6 +487,9 @@ public:
 
     void FillGrid(int type){
         std::fill(grid.begin(), grid.end(), type);
+        for(int i = 0; i < HEIGHT*WIDTH; ++i){
+            updatePixelVertices(i, getCellColor(type, colors[i]));
+        }
     }
 
     // Логика обновления блоков
@@ -386,17 +502,11 @@ public:
                 int x = leftToRight ? step : (WIDTH - 1 - step);
                 int currentIndex = getIndex(x,y);
                 int color = std::rand() % 2;
+                int type = grid[currentIndex];
 
-
-                switch (grid[currentIndex])
-                {
-                    case SAND: updateSand(x,y, currentIndex, color); break;
-                    case WATER: updateWater(x,y, currentIndex, color); break;
-                    case DIRT: updateDirt(x, y, currentIndex, color); break;
-                    case ACID_L:
-                    case ACID_R: updateAcid(x, y, currentIndex, color); break;
-                    case FIRE: updateFire(x, y, currentIndex, color); break;
-                    case SMOKE: updateSmoke(x, y, currentIndex, color); break;
+                if(!activeGrid[getIndex(x,y)]) continue;
+                if (updateFunctions[type] != nullptr) {
+                    (this->*updateFunctions[type])(x, y, currentIndex, color);
                 }
             }
         }
@@ -404,48 +514,6 @@ public:
 
 
     void draw(sf::RenderWindow& win){
-        for(int y = 0; y <HEIGHT; ++y){
-            for(int x = 0; x < WIDTH; ++x){
-                int index = getIndex(x,y);
-
-                sf::Color cellColor;
-                switch (grid[getIndex(x,y)])
-                {
-                    case AIR:
-                        cellColor = sf::Color(20,20,20);
-                        break;
-                    case SAND:
-                        cellColor = (colors[index] == 0) ? sf::Color(235,190,85) : sf::Color(185,135,45);
-                        break;
-                    case WATER:
-                        cellColor = (colors[index] == 0) ? sf::Color(40,160,175) : sf::Color(127,255,212);
-                        break;
-                    case DIRT:
-                        cellColor = (colors[index] == 0) ? sf::Color(120,75,45) : sf::Color(85,50,30);
-                        break;
-                    case STONE:
-                        cellColor = (colors[index] == 0) ? sf::Color(70,75,80) : sf::Color(110,115,120);
-                        break;
-                    case ACID_L:
-                        cellColor = (std::rand() % 2 == 0) ? sf::Color(143,254,9) : sf::Color(45,140,5);                    
-                        break;
-                    case ACID_R:
-                        cellColor = (std::rand() % 2 == 0) ? sf::Color(143,254,9) : sf::Color(45,140,5);  
-                        break;
-                    case FIRE:
-                        cellColor = (std::rand() % 2 == 0) ? sf::Color(255, 69, 0) : sf::Color(255, 140, 0);
-                        break;
-                    case SMOKE:
-                        cellColor = (colors[index] == 0) ? sf::Color(80, 80, 80) : sf::Color(120, 120, 120);
-                        break;
-                }
-                pixels[(index * 4) + 0].color = cellColor;
-                pixels[(index * 4) + 1].color = cellColor;
-                pixels[(index * 4) + 2].color = cellColor;
-                pixels[(index * 4) + 3].color = cellColor;
-            }
-        }
-
         win.draw(pixels);
     }
 };

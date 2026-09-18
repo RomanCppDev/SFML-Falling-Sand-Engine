@@ -3,6 +3,7 @@
 #include <cmath>
 #include <SFML/Graphics.hpp>
 #include "engine.h"
+#include <map>
 
 struct Button{
     sf::Sprite sprite;
@@ -11,15 +12,9 @@ struct Button{
 };
 
 struct ElementButton : Button{
-    int elementType;
+    unsigned int elementType;
 };
 
-void loadTexture(Button& btn, std::string path, float sizeX = 80.f, float sizeY = 80.f){
-    if(btn.texture.loadFromFile("textures/" + path)){
-        btn.sprite.setTexture(btn.texture);
-        btn.sprite.setScale(sizeX / btn.texture.getSize().x, sizeY / btn.texture.getSize().y);
-    }
-}
 
 class RoundedRectangleShape : public sf::Shape{
 private:
@@ -28,8 +23,8 @@ private:
     std::size_t cornerPointCount;
 public:
     RoundedRectangleShape(const sf::Vector2f& size = sf::Vector2f(0.f, 0.f), float radius = 0.f, std::size_t cornerPointCount = 30)
-        : size(size), cornerPointCount(cornerPointCount){
-    setRadius(radius);
+        : size(size), radius(radius), cornerPointCount(cornerPointCount) {
+        setRadius(this->radius); 
     }
 
     void setSize(const sf::Vector2f& size) 
@@ -43,7 +38,7 @@ public:
         this->radius = std::min(radius, maxRadius); 
         update(); 
     }
-    void setCornerPointCount(std::size_t& count) {this->cornerPointCount = count; update();}
+    void setCornerPointCount(std::size_t count) { this->cornerPointCount = count; update(); }
 
     virtual std::size_t getPointCount() const override{
         return cornerPointCount*4;
@@ -89,10 +84,22 @@ private:
     static constexpr float minPanelHeight = 60.f;
     static constexpr float maxPanelHeight = 450.f;
 
-    short currentItem = SAND;
+    unsigned int currentItem = SAND;
 
     bool isPanelMovingToUp = false;
     bool isPanelMoving = false; 
+
+    std::map<unsigned int, sf::Texture> uiTextures;
+
+        void loadTexture(Button& btn, unsigned int elementType, std::string path, float sizeX = 80.f, float sizeY = 80.f) {
+            if (uiTextures[elementType].loadFromFile("textures/" + path)) {
+                uiTextures[elementType].setSmooth(false);   
+                uiTextures[elementType].setRepeated(false); 
+        
+                btn.sprite.setTexture(uiTextures[elementType], true); 
+                btn.sprite.setScale(sizeX / uiTextures[elementType].getSize().x, sizeY / uiTextures[elementType].getSize().y);
+            }
+        }
     
     ElementButton sandBtn;
     ElementButton waterBtn;
@@ -107,68 +114,68 @@ private:
 
 public:    
     sf::RectangleShape panel; 
-    UI() : 
+        UI() : 
     panel(sf::Vector2f((WIDTH * CELL_SIZE) - 4.f, maxPanelHeight)),
-    btn(sf::Vector2f(100.f,20.f), 10.f, 30){
+    btn(sf::Vector2f(100.f,20.f), 10.f, 30) {
 
-        //Панель
+        // Панель
         panel.setFillColor(sf::Color(40,40,40,240));
         panel.setPosition(sf::Vector2f(2.f, (HEIGHT*CELL_SIZE) ));
         panel.setOutlineColor(sf::Color(169,169,169,240));
         panel.setOutlineThickness(2.f);
 
-        //---КНОПКИ---
-
-        //Кнопка выдвижения панели
+        // Кнопка выдвижения панели
         btn.setFillColor(sf::Color(169, 169, 169));
         btn.setPosition(sf::Vector2f(((WIDTH*CELL_SIZE) / 2) - 50.f, panel.getPosition().y - 10.f));
 
         // Кнопка-Песок
         sandBtn.elementType = SAND;
         sandBtn.name = L"Песок";
-        loadTexture(sandBtn, "sand.png");    
+        loadTexture(sandBtn, SAND, "sand.png");    
         sandBtn.sprite.setPosition(10.f, panel.getPosition().y - 3.f);
 
-        //Кнопка-Вода
+        // Кнопка-Вода
         waterBtn.elementType = WATER;
         waterBtn.name = L"Вода";
-        loadTexture(waterBtn, "water.png");
-        waterBtn.sprite.setPosition(sf::Vector2f(90.f, panel.getPosition().y -3.f));
+        loadTexture(waterBtn, WATER, "water.png");
+        waterBtn.sprite.setPosition(sf::Vector2f(90.f, panel.getPosition().y - 3.f));
         waterBtn.sprite.setColor(sf::Color(120,120,120));
 
-        //Кнопка-Земля
+        // Кнопка-Земля
         dirtBtn.elementType = DIRT;
         dirtBtn.name = L"Земля";
-        loadTexture(dirtBtn, "dirt.png");
-        dirtBtn.sprite.setPosition(sf::Vector2f(170.f, panel.getPosition().y -3.f));
+        loadTexture(dirtBtn, DIRT, "dirt.png"); // Теперь DIRT автоматически найдет свое место в памяти!
+        dirtBtn.sprite.setPosition(sf::Vector2f(170.f, panel.getPosition().y - 3.f));
         dirtBtn.sprite.setColor(sf::Color(120,120,120));
 
-        //Кнопка-Камень
+        // Кнопка-Камень
         stoneBtn.elementType = STONE;
         stoneBtn.name = L"Камень";
-        loadTexture(stoneBtn, "stone.png");
-        stoneBtn.sprite.setPosition(sf::Vector2f(250.f, panel.getPosition().y -3.f));
+        loadTexture(stoneBtn, STONE, "stone.png");
+        stoneBtn.sprite.setPosition(sf::Vector2f(250.f, panel.getPosition().y - 3.f));
         stoneBtn.sprite.setColor(sf::Color(120,120,120));
 
-        //Кнопка-Кислота
+        // Кнопка-Кислота
         acidBtn.elementType = ACID_L;
         acidBtn.name = L"Кислота";
-        loadTexture(acidBtn, "acid.png");
-        acidBtn.sprite.setPosition(sf::Vector2f(330.f, panel.getPosition().y -3.f));
+        loadTexture(acidBtn, ACID_L, "acid.png");
+        acidBtn.sprite.setPosition(sf::Vector2f(330.f, panel.getPosition().y - 3.f));
         acidBtn.sprite.setColor(sf::Color(120,120,120));
 
-        //Кнопка-Огонь
+        // Кнопка-Огонь
         fireBtn.elementType = FIRE;
         fireBtn.name = L"Огонь";
-        loadTexture(fireBtn, "fire.png", 60.f, 60.f);
-        fireBtn.sprite.setPosition(sf::Vector2f(410.f, panel.getPosition().y + 2.f));
+        loadTexture(fireBtn, FIRE, "fire.png", 60.f, 60.f); 
+        fireBtn.sprite.setPosition(sf::Vector2f(410.f, panel.getPosition().y - 3.f));
         fireBtn.sprite.setColor(sf::Color(120,120,120));
 
-        //Кнопка-Очистить
-        loadTexture(trashBtn, "trash.png", 100.f, 100.f);
+        // Кнопка-Очистить 
+        loadTexture(trashBtn, 0, "trash.png", 100.f, 100.f);
         trashBtn.sprite.setPosition(panel.getPosition().x + (WIDTH*CELL_SIZE) - 100.f, panel.getPosition().y + getMaxPanelHeight() - 190.f);
         trashBtn.sprite.setColor(sf::Color(120,120,120));
+
     }
+
 
     float getMinPanelHeight() const {
         return minPanelHeight;
@@ -242,7 +249,7 @@ public:
             fireBtn.sprite.setColor(sf::Color(120,120,120));
         }
         else if(acidBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
-            currentItem = ACID_L;
+            currentItem = acidBtn.elementType;
 
             //Перекраска кнопок
             sandBtn.sprite.setColor(sf::Color(120,120,120));
