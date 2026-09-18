@@ -111,6 +111,10 @@ private:
         if(grid[downIdx] == WATER){
             std::swap(grid[currentIndex], grid[downIdx]);
             std::swap(colors[currentIndex], colors[downIdx]);
+            updatePixelVertices(currentIndex, getCellColor(grid[currentIndex], std::rand() % 2));
+            updatePixelVertices(downIdx, getCellColor(grid[downIdx], std::rand() % 2));
+            activeNeighbors(x, y);
+            activeNeighbors(x, y+1);
 
             return true;
         }
@@ -186,23 +190,43 @@ private:
             return;
         }
 
-        int maxSteps = 15;
-        int currentX = x;
+        int maxSteps = 5;
+        int leftSpace = 0;
+        int rightSpace = 0;
 
-        for(int i = 0; i < maxSteps; ++i){
-            int nextX = currentX + sideDir;
-            if(isVaild(nextX, y) && grid[getIndex(nextX, y)] == AIR){
-                currentX = nextX;
-            } else {
-                break;
-            }
+        // Кол-во справа
+            for (int i = 1; i <= maxSteps; ++i) {
+            if (isVaild(x - i, y) && grid[getIndex(x - i, y)] == AIR) leftSpace = i;
+            else break;
         }
 
-        if(currentX != x){
-            moveElement(x, y, getIndex(currentX, y), WATER, colors[currentIndex], color);
+        // Кол-во слева
+        for (int i = 1; i <= maxSteps; ++i) {
+            if (isVaild(x + i, y) && grid[getIndex(x + i, y)] == AIR) rightSpace = i;
+            else break;
+        }
+
+        if (leftSpace > 0 || rightSpace > 0) {
+            int targetX = x;
+        
+            if (leftSpace > rightSpace) {
+                targetX = x - leftSpace;
+            } else if (rightSpace > leftSpace) {
+                targetX = x + rightSpace; 
+            } else {
+            targetX = (std::rand() % 2 == 0) ? (x - leftSpace) : (x + rightSpace);
+            }
+
+            int targetIdx = getIndex(targetX, y);
+            moveElement(x, y, targetIdx, WATER, colors[currentIndex], color);
+        
+            int startX = std::min(x, targetX);
+            int endX = std::max(x, targetX);
+            for (int tx = startX; tx <= endX; ++tx) {
+                activeNeighbors(tx, y);
+            }
             return;
         }
-
         activeGrid[currentIndex] = false;
     }
 
@@ -228,7 +252,7 @@ private:
             moveElement(x, y, getIndex(diagR, y+1), DIRT, colors[currentIndex], color);
             return;
         }
-
+        
         activeGrid[currentIndex] = false;
     }
 
