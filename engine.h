@@ -38,6 +38,15 @@ private:
     typedef void (SandBoxEngine::*ElementUpdateFunc)(int x, int y, int index, int color);
     ElementUpdateFunc updateFunctions[9];
 
+    // Более оптимизированый рандом
+    uint32_t fastRandState = 123456789;
+    inline uint32_t fastRand(){
+        fastRandState ^= (fastRandState << 13);
+        fastRandState ^= (fastRandState >> 17);
+        fastRandState ^= (fastRandState << 5);
+        return fastRandState;
+    }
+
     sf::Color getCellColor(int type, int colorBit = 0){
         switch (type){
             case AIR: return sf::Color(20, 20, 20); break;
@@ -53,8 +62,8 @@ private:
     }
 
     void activeNeighbors(int x, int y){
-        int dx[] = {-1, 0, 1, -1, 1, -1, 0, 1};
-        int dy[] = {-1, -1, -1, 0, 0, 1, 1, 1};
+        int dx[] = { 0, 1, 1, -1, 0, 1};
+        int dy[] = { -1, 0, 0, 1, 1, 1};
 
         for(int i = 0; i < 8; ++i){
             int tx = x+dx[i], ty = y+dy[i];
@@ -111,8 +120,8 @@ private:
         if(grid[downIdx] == WATER){
             std::swap(grid[currentIndex], grid[downIdx]);
             std::swap(colors[currentIndex], colors[downIdx]);
-            updatePixelVertices(currentIndex, getCellColor(grid[currentIndex], std::rand() % 2));
-            updatePixelVertices(downIdx, getCellColor(grid[downIdx], std::rand() % 2));
+            updatePixelVertices(currentIndex, getCellColor(grid[currentIndex], fastRand() & 1));
+            updatePixelVertices(downIdx, getCellColor(grid[downIdx], fastRand() & 1));
             activeNeighbors(x, y);
             activeNeighbors(x, y+1);
 
@@ -132,7 +141,7 @@ private:
             return;
         }
 
-        int sideDir = (std::rand() % 2 == 0) ? -1 : 1;
+        int sideDir = (fastRand() & 1) ? -1 : 1;
         int diagL = getIndex(x - sideDir, y+1);
         int diagR = getIndex(x + sideDir, y+1);
 
@@ -167,68 +176,62 @@ private:
         activeGrid[currentIndex] = false;
     }
 
-    void updateWater(int x, int y, int currentIndex, int color){
-        if(AcidAtTheBottom(currentIndex, x, y, color)) return;
+    void updateWater(int x, int y, int currentIndex, int color) {
+        if (AcidAtTheBottom(currentIndex, x, y, color)) return;
 
-        int downIdx = getIndex(x, y+1);
-        if(isVaild(x, y+1) && grid[downIdx] == AIR){
+        int downIdx = getIndex(x, y + 1);
+        if (isVaild(x, y + 1) && grid[downIdx] == AIR) {
             moveElement(x, y, downIdx, WATER, colors[currentIndex], color);
             return;
         }
 
-        int sideDir = (std::rand() % 2 == 0) ? -1 : 1;
-
-        int diagL = x+sideDir;
+        int sideDir = (fastRand() & 1) ? -1 : 1;
+        int diagL = x + sideDir;
         int diagR = x - sideDir;
 
-        if(isVaild(diagL, y+1) && grid[getIndex(diagL, y+1)] == AIR){
-            moveElement(x, y, getIndex(diagL, y+1), WATER, colors[currentIndex], color);
+        if (isVaild(diagL, y + 1) && grid[getIndex(diagL, y + 1)] == AIR) {
+            moveElement(x, y, getIndex(diagL, y + 1), WATER, colors[currentIndex], color);
             return;
         }
-        if(isVaild(diagR, y+1) && grid[getIndex(diagR, y+1)] == AIR){
-            moveElement(x, y, getIndex(diagR, y+1), WATER, colors[currentIndex], color);
+        if (isVaild(diagR, y + 1) && grid[getIndex(diagR, y + 1)] == AIR) {
+            moveElement(x, y, getIndex(diagR, y + 1), WATER, colors[currentIndex], color);
             return;
         }
 
-        int maxSteps = 5;
-        int leftSpace = 0;
-        int rightSpace = 0;
+        int targetX = x;
+        int maxSpread = 25;
 
-        // Кол-во справа
-            for (int i = 1; i <= maxSteps; ++i) {
-            if (isVaild(x - i, y) && grid[getIndex(x - i, y)] == AIR) leftSpace = i;
-            else break;
-        }
+        for (int i = 1; i <= maxSpread; ++i) {
+            int nx = x + (i * sideDir);
+            if (!isVaild(nx, y)) break;
 
-        // Кол-во слева
-        for (int i = 1; i <= maxSteps; ++i) {
-            if (isVaild(x + i, y) && grid[getIndex(x + i, y)] == AIR) rightSpace = i;
-            else break;
-        }
-
-        if (leftSpace > 0 || rightSpace > 0) {
-            int targetX = x;
+            int nextIdx = getIndex(nx, y);
         
-            if (leftSpace > rightSpace) {
-                targetX = x - leftSpace;
-            } else if (rightSpace > leftSpace) {
-                targetX = x + rightSpace; 
+            if (grid[nextIdx] == AIR) {
+                targetX = nx;
+            
+                if (isVaild(nx, y + 1) && grid[getIndex(nx, y + 1)] == AIR) {
+                    break;
+                }
             } else {
-            targetX = (std::rand() % 2 == 0) ? (x - leftSpace) : (x + rightSpace);
+                break; 
             }
+        }
 
-            int targetIdx = getIndex(targetX, y);
-            moveElement(x, y, targetIdx, WATER, colors[currentIndex], color);
-        
-            int startX = std::min(x, targetX);
-            int endX = std::max(x, targetX);
-            for (int tx = startX; tx <= endX; ++tx) {
-                activeNeighbors(tx, y);
-            }
+        if (targetX != x) {
+            moveElement(x, y, getIndex(targetX, y), WATER, colors[currentIndex], color);
             return;
         }
+
+        int altX = x - sideDir;
+        if (isVaild(altX, y) && grid[getIndex(altX, y)] == AIR) {
+            moveElement(x, y, getIndex(altX, y), WATER, colors[currentIndex], color);
+            return;
+        }
+
         activeGrid[currentIndex] = false;
     }
+
 
     void updateDirt(int x, int y, int currentIndex, int color){
         if(AcidAtTheBottom(currentIndex, x, y, color)) return;
@@ -240,7 +243,7 @@ private:
             return;
         }
 
-        int sideDir = (std::rand() % 2 == 0) ? -1 : 1;
+        int sideDir = (fastRand() & 1) ? -1 : 1;
         int diagL = x+sideDir;
         int diagR = x-sideDir;
 
@@ -281,7 +284,7 @@ private:
             }
         }
 
-        int dir = (std::rand() % 2 == 0) ? -1 : 1;
+        int dir = (fastRand() & 1) ? -1 : 1;
         int sideX = x + dir;
 
         if (isVaild(sideX, y)) {
@@ -330,8 +333,8 @@ private:
     }
 
     void updateFire(int x, int y, int currentIndex, int color){
-        if(std::rand()%100 < 5){
-            if (std::rand() % 2 == 0) {
+        if(fastRand()%100 < 5){
+            if (fastRand() % 2 == 0) {
                 grid[currentIndex] = SMOKE;
                 activeNeighbors(x, y);
                 updatePixelVertices(currentIndex, getCellColor(SMOKE, colors[currentIndex]));
@@ -372,8 +375,8 @@ private:
         }
 
         //Распростронение огня
-        if(std::rand() % 5 == 0){
-            int dir = std::rand() % 8;
+        if(fastRand() % 5 == 0){
+            int dir = fastRand() % 8;
 
             for (int i = 0; i < 8; ++i) {
                 int currentDir = (dir + i) % 8;
@@ -385,7 +388,7 @@ private:
 
                     if (grid[targetIndex] == DIRT) {
                         grid[targetIndex] = FIRE;
-                        colors[targetIndex] = std::rand() % 2;
+                        colors[targetIndex] = fastRand() % 2;
                         updatePixelVertices(targetIndex, getCellColor(FIRE, colors[targetIndex]));
                         activeNeighbors(x, y);
                         break;
@@ -396,7 +399,7 @@ private:
     }
 
     void updateSmoke(int x, int y, int currentIndex, int color){
-        if (std::rand() % 100 < 1) { 
+        if (fastRand() % 100 < 1) { 
             grid[currentIndex] = AIR;
             colors[currentIndex] = 0;
             updatePixelVertices(currentIndex, getCellColor(AIR));
@@ -404,7 +407,7 @@ private:
         }
 
         if (y == 0) {
-            if (std::rand() % 100 < 15) {
+            if (fastRand() % 100 < 15) {
                 grid[currentIndex] = AIR;
                 colors[currentIndex] = 0;
                 updatePixelVertices(currentIndex, getCellColor(AIR));
@@ -414,7 +417,7 @@ private:
 
         if (std::rand() % 100 < 30) {
         
-            int dirX = (std::rand() % 3) - 1;
+            int dirX = (fastRand() % 3) - 1;
             int tx = x + dirX;
             int ty = y - 1; 
 
@@ -426,7 +429,7 @@ private:
                 return;
             }
             else {
-                int sideX = x + ((std::rand() % 2 == 0) ? -1 : 1);
+                int sideX = x + ((fastRand() & 1) ? -1 : 1);
                 if (isVaild(sideX, y) && grid[getIndex(sideX, y)] == AIR) {
                     int targetIndex = getIndex(sideX, y);
                     moveElement(x, y, targetIndex, SMOKE, colors[currentIndex], color);
@@ -471,7 +474,7 @@ public:
                 pixels[vIndex + 2].position = sf::Vector2f(rigth, bottom);
                 pixels[vIndex + 3].position = sf::Vector2f(left, bottom);
 
-                colors[index] = std::rand() % 2;
+                colors[index] = fastRand() & 1;
 
                 updatePixelVertices(index, getCellColor(AIR, colors[index]));
             }
@@ -496,11 +499,11 @@ public:
                 }
                 else if (BlockId == AIR || grid[index] == AIR) {
                     if (BlockId == ACID_L) {
-                        grid[index] = (std::rand() % 2 == 0) ? ACID_L : ACID_R;
+                        grid[index] = (fastRand() & 1) ? ACID_L : ACID_R;
                         blockChanged = true;
                     } else {
                         grid[index] = BlockId;
-                        colors[index] = std::rand() % 2;
+                        colors[index] = fastRand() % 2;
                         blockChanged = true;
 
                         updatePixelVertices(index, getCellColor(BlockId, colors[index]));
@@ -524,13 +527,13 @@ public:
     // Логика обновления блоков
     void update(){
         for(int y = HEIGHT - 1; y >= 0; --y){
-            bool leftToRight = (std::rand() % 2 == 0); 
+            bool leftToRight = (fastRand() & 1); 
 
             for(int step = 0; step < WIDTH; ++step){
 
                 int x = leftToRight ? step : (WIDTH - 1 - step);
                 int currentIndex = getIndex(x,y);
-                int color = std::rand() % 2;
+                int color = fastRand() & 1;
                 int type = grid[currentIndex];
 
                 if(!activeGrid[getIndex(x,y)]) continue;
