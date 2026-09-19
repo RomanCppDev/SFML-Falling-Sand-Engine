@@ -13,6 +13,7 @@ int main() {
     // Окно
     sf::RenderWindow window(sf::VideoMode(WIDTH * CELL_SIZE, HEIGHT * CELL_SIZE + ui.getMinPanelHeight()), "SandBox");
     window.setFramerateLimit(140);
+    window.setVerticalSyncEnabled(false);
 
     SandBoxEngine engine;
     unsigned short brushSize = 2;

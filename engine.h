@@ -25,14 +25,19 @@ private:
     std::vector<unsigned short> grid;
     std::vector<unsigned short> colors;
     std::vector<bool> activeGrid;
-    sf::VertexArray pixels;
+    
+    sf::Texture texture;
+    sf::Sprite sprite;
+    std::vector<sf::Uint8> pixelBuffer;
+
 
     int getIndex(int x, int y){
         return y*WIDTH+x;
     }
 
-    bool isVaild(int x,int y) const{
-        return (x>=0 && x <WIDTH && y >= 0 && y < HEIGHT);
+    inline bool isVaild(int x, int y) const {
+        return (static_cast<unsigned int>(x) < static_cast<unsigned int>(WIDTH) && 
+            static_cast<unsigned int>(y) < static_cast<unsigned int>(HEIGHT));
     }
 
     typedef void (SandBoxEngine::*ElementUpdateFunc)(int x, int y, int index, int color);
@@ -47,19 +52,21 @@ private:
         return fastRandState;
     }
 
-    sf::Color getCellColor(int type, int colorBit = 0){
-        switch (type){
-            case AIR: return sf::Color(20, 20, 20); break;
-            case SAND: return (colorBit == 0) ? sf::Color(235,190,85) : sf::Color(185, 135, 45); break;
-            case WATER: return (colorBit == 0) ? sf::Color(40, 160, 175) : sf::Color(127, 255, 212); break;
-            case STONE: return (colorBit == 0) ? sf::Color(70, 75, 80) : sf::Color(110, 115, 120); break;
-            case ACID_L: case ACID_R: return (colorBit == 0) ? sf::Color(143, 254, 9) : sf::Color(45, 140, 5); break; 
-            case FIRE: return (colorBit == 0) ? sf::Color(255, 69, 0) : sf::Color(255, 140, 0); break;
-            case SMOKE: return (colorBit == 0) ? sf::Color(80, 80, 80) : sf::Color(120, 120, 120); break;
-            case DIRT: return (colorBit == 0) ? sf::Color(120, 75, 45) : sf::Color(85, 50, 30); break;
+    uint32_t getCellColor(int type, int colorBit = 0) {
+        switch (type) {
+            case AIR:    return 0xff141414;
+            case SAND:   return (colorBit == 0) ? 0xff55C6EB : 0xff2D87B9; 
+            case WATER:  return (colorBit == 0) ? 0xffAFA028 : 0xffFFFF7F; 
+            case STONE:  return (colorBit == 0) ? 0xff504B46 : 0xff78736E; 
+            case ACID_L: 
+            case ACID_R: return (colorBit == 0) ? 0xff09FE8F : 0xff058C2D; 
+            case FIRE:   return (colorBit == 0) ? 0xff0045FF : 0xff008CFF;
+            case SMOKE:  return (colorBit == 0) ? 0xff505050 : 0xff787878; 
+            case DIRT:   return (colorBit == 0) ? 0xff2D4B78 : 0xff1E3255; 
         }
-        return sf::Color::Black;
+        return 0xff000000; 
     }
+
 
     void activeNeighbors(int x, int y){
         int dx[] = { 0, 1, 1, -1, 0, 1};
@@ -74,17 +81,13 @@ private:
         }
     }
 
-    void updatePixelVertices(int index, sf::Color cellColor) {
-        int vIndex = index * 4;
-        pixels[vIndex + 0].color = cellColor;
-        pixels[vIndex + 1].color = cellColor;
-        pixels[vIndex + 2].color = cellColor;
-        pixels[vIndex + 3].color = cellColor;
+    void updatePixelVertices(int index, uint32_t cellColor) {
+        uint32_t* pixelPtr = reinterpret_cast<uint32_t*>(&pixelBuffer[index * 4]);
+        *pixelPtr = cellColor;
     }
 
     inline void moveElement(int x, int y, int to, int type, int oldColor, int newColor){
         int from = getIndex(x, y);
-        activeNeighbors(x, y);
 
         grid[from] = AIR;
         grid[to] = type;
@@ -93,6 +96,10 @@ private:
 
         updatePixelVertices(from, getCellColor(AIR, newColor));
         updatePixelVertices(to, getCellColor(type, oldColor));
+
+        activeNeighbors(x, y);
+
+        activeGrid[to] = true; 
     }
 
     bool AcidAtTheBottom(int currentIndex, int x, int y, int color){
@@ -130,51 +137,37 @@ private:
         return false;
     }
 
-    void updateSand(int x, int y, int currentIndex, int color){
-        int downIdx = getIndex(x,y+1);
+    void updateSand(int x, int y, int currentIndex, int color) {
+        int downIdx = getIndex(x, y + 1);
 
-        if(AcidAtTheBottom(currentIndex, x, y, color)) return;
-        if(WaterAtTheBottom(currentIndex, x, y)) return;
+        if (AcidAtTheBottom(currentIndex, x, y, color)) return;
+        if (WaterAtTheBottom(currentIndex, x, y)) return;
 
-        if(isVaild(x,y+1) && grid[getIndex(x,y+1)] == AIR){
+        if (isVaild(x, y + 1) && grid[downIdx] == AIR) {
             moveElement(x, y, downIdx, SAND, colors[currentIndex], color);
             return;
         }
 
-        int sideDir = (fastRand() & 1) ? -1 : 1;
-        int diagL = getIndex(x - sideDir, y+1);
-        int diagR = getIndex(x + sideDir, y+1);
+        if (isVaild(x, y + 1)) {
+            activeGrid[downIdx] = true;
+        }
 
-        if(isVaild(x - sideDir, y+1) && grid[diagL] == AIR) {
+        int sideDir = (fastRand() & 1) ? -1 : 1;
+        int diagL = getIndex(x + sideDir, y + 1);
+        int diagR = getIndex(x - sideDir, y + 1);
+
+        if (isVaild(x + sideDir, y + 1) && grid[diagL] == AIR) {
             moveElement(x, y, diagL, SAND, colors[currentIndex], color);
             return;
         }
-        if(isVaild(x + sideDir, y+1) && grid[diagR] == AIR){
+        if (isVaild(x - sideDir, y + 1) && grid[diagR] == AIR) {
             moveElement(x, y, diagR, SAND, colors[currentIndex], color);
             return;
         }
 
-        //Появление земли
-        int dx[] = {0,0,1,-1};
-        int dy[] = {1,-1,0,0};
-
-        for(int i =0; i < 4; ++i){
-            int tx = x+dx[i];
-            int ty = y+dy[i];
-
-            if(isVaild(tx, ty)){
-                int targeIdx = getIndex(tx, ty);
-
-                if(grid[targeIdx] == WATER){
-                    grid[currentIndex] = AIR;
-                    grid[targeIdx] = DIRT;
-                    return;
-                }
-            }
-        }
-
         activeGrid[currentIndex] = false;
     }
+
 
     void updateWater(int x, int y, int currentIndex, int color) {
         if (AcidAtTheBottom(currentIndex, x, y, color)) return;
@@ -241,6 +234,10 @@ private:
         if(isVaild(x, y+1) && grid[downIdx] == AIR){
             moveElement(x, y, downIdx, DIRT, colors[currentIndex], color);
             return;
+        }
+
+        if (isVaild(x, y + 1)) {
+            activeGrid[downIdx] = true;
         }
 
         int sideDir = (fastRand() & 1) ? -1 : 1;
@@ -446,8 +443,12 @@ public:
         grid.assign(WIDTH*HEIGHT, AIR);
         colors.assign(WIDTH*HEIGHT, 0);
         activeGrid.assign(WIDTH*HEIGHT, true);
-        pixels.setPrimitiveType(sf::PrimitiveType::Quads);
-        pixels.resize(WIDTH*HEIGHT*4);
+
+        texture.create(WIDTH,HEIGHT);
+        sprite.setTexture(texture);
+        sprite.setScale(CELL_SIZE, CELL_SIZE);
+
+        pixelBuffer.assign(WIDTH*HEIGHT*4, 255);
 
         updateFunctions[AIR] = nullptr;
         updateFunctions[SAND] = &SandBoxEngine::updateSand;
@@ -462,60 +463,47 @@ public:
         for(int y = 0; y < HEIGHT; ++y){
             for(int x = 0; x < WIDTH; ++x){
                 int index = getIndex(x,y);
-                int vIndex = 4*index;
-
-                float left = x*CELL_SIZE;
-                float top = y *CELL_SIZE;
-                float rigth = left + CELL_SIZE;
-                float bottom = top + CELL_SIZE;
-
-                pixels[vIndex + 0].position = sf::Vector2f(left,top);
-                pixels[vIndex + 1].position = sf::Vector2f(rigth, top);
-                pixels[vIndex + 2].position = sf::Vector2f(rigth, bottom);
-                pixels[vIndex + 3].position = sf::Vector2f(left, bottom);
 
                 colors[index] = fastRand() & 1;
-
                 updatePixelVertices(index, getCellColor(AIR, colors[index]));
             }
         }
     }
 
     void addBlock(int mouseX, int mouseY, int brushSize, unsigned int BlockId) {
-        for (int dy = -brushSize; dy <= brushSize; ++dy) {
-            for (int dx = -brushSize; dx <= brushSize; ++dx) {
+        for (int dy = -brushSize - 1; dy <= brushSize + 1; ++dy) {
+            for (int dx = -brushSize - 1; dx <= brushSize + 1; ++dx) {
                 int nx = mouseX + dx;
                 int ny = mouseY + dy;
-            
+        
                 if (!isVaild(nx, ny)) continue;
                 int index = getIndex(nx, ny);
-                bool blockChanged = false;
 
-                if (BlockId == FIRE) {
-                    if (grid[index] == DIRT) {
-                        grid[index] = FIRE;
-                        blockChanged = true;
+                bool isInsideBrush = (dy >= -brushSize && dy <= brushSize && dx >= -brushSize && dx <= brushSize);
+
+                if (isInsideBrush) {
+                    if (BlockId == FIRE) {
+                        if (grid[index] == DIRT) {
+                            grid[index] = FIRE;
+                            activeGrid[index] = true;
+                        }
                     }
-                }
-                else if (BlockId == AIR || grid[index] == AIR) {
-                    if (BlockId == ACID_L) {
-                        grid[index] = (fastRand() & 1) ? ACID_L : ACID_R;
-                        blockChanged = true;
-                    } else {
+                    else if (BlockId == AIR || grid[index] == AIR) {
                         grid[index] = BlockId;
-                        colors[index] = fastRand() % 2;
-                        blockChanged = true;
-
+                        colors[index] = fastRand() & 1;
                         updatePixelVertices(index, getCellColor(BlockId, colors[index]));
+                        activeGrid[index] = true;
+
+                        if (isVaild(nx, ny + 1)) {
+                            activeGrid[getIndex(nx, ny + 1)] = true;
+                        }
                     }
-                }
-                if(blockChanged){
-                    activeNeighbors(nx, ny);
+                } else {
+                    activeGrid[index] = true; 
                 }
             }
         }
     }
-
 
     void FillGrid(int type){
         std::fill(grid.begin(), grid.end(), type);
@@ -526,18 +514,20 @@ public:
 
     // Логика обновления блоков
     void update(){
+        bool leftToRight = (fastRand() & 1);
+
         for(int y = HEIGHT - 1; y >= 0; --y){
-            bool leftToRight = (fastRand() & 1); 
+            int rowOffset = y * WIDTH;
 
             for(int step = 0; step < WIDTH; ++step){
-
                 int x = leftToRight ? step : (WIDTH - 1 - step);
-                int currentIndex = getIndex(x,y);
-                int color = fastRand() & 1;
-                int type = grid[currentIndex];
+                int currentIndex = rowOffset + x;
 
-                if(!activeGrid[getIndex(x,y)]) continue;
+                if(!activeGrid[currentIndex]) continue;
+
+                int type = grid[currentIndex];
                 if (updateFunctions[type] != nullptr) {
+                    int color = (fastRand() & 1);
                     (this->*updateFunctions[type])(x, y, currentIndex, color);
                 }
             }
@@ -546,6 +536,7 @@ public:
 
 
     void draw(sf::RenderWindow& win){
-        win.draw(pixels);
+        texture.update(pixelBuffer.data());
+        win.draw(sprite);
     }
 };
