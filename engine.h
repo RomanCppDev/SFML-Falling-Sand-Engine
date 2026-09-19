@@ -138,6 +138,40 @@ private:
     }
 
     void updateSand(int x, int y, int currentIndex, int color) {
+        bool waterNearby = false;
+        int targetWaterIdx = -1;
+
+        for (int dy = -5; dy <= 5; ++dy) {
+            int targetY = y + dy;
+            if (targetY < 0 || targetY >= HEIGHT) continue;
+
+            int rowOffset = targetY * WIDTH;
+
+            for (int dx = -5; dx <= 5; ++dx) {
+                int targetX = x + dx;
+                if (targetX < 0 || targetX >= WIDTH) continue;
+
+                int checkIdx = rowOffset + targetX;
+
+                if (grid[checkIdx] == WATER) {
+                    waterNearby = true;
+                    targetWaterIdx = checkIdx;
+                    break; 
+                }
+            }
+            if (waterNearby) break;
+        }
+
+        if (waterNearby) {
+            if((fastRand() % 100) < 1){
+                grid[currentIndex] = DIRT;
+                updatePixelVertices(currentIndex, getCellColor(DIRT, colors[currentIndex]));
+
+                activeNeighbors(x, y);
+                activeGrid[currentIndex] = false; 
+                return; 
+            }
+        }
         int downIdx = getIndex(x, y + 1);
 
         if (AcidAtTheBottom(currentIndex, x, y, color)) return;
@@ -522,6 +556,21 @@ public:
             for(int step = 0; step < WIDTH; ++step){
                 int x = leftToRight ? step : (WIDTH - 1 - step);
                 int currentIndex = rowOffset + x;
+
+                if (grid[currentIndex] == SAND && !activeGrid[currentIndex]) {
+                    int dx[] = {0, 0, -1, 1};
+                    int dy[] = {-1, 1, 0, 0};
+                    for (int i = 0; i < 4; ++i) {
+                        int tx = x + dx[i];
+                        int ty = y + dy[i];
+                        if (isVaild(tx, ty)) {
+                            if (grid[ty * WIDTH + tx] == WATER) {
+                                activeGrid[currentIndex] = true;
+                                break;
+                            }
+                        }
+                    }
+                }
 
                 if(!activeGrid[currentIndex]) continue;
 
