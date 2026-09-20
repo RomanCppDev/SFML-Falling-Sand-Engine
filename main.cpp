@@ -1,6 +1,5 @@
 #include "engine.h"
 #include "ui.h"
-#include <thread>
 
 void usePanel(const int& maxPanelHeight, const int& minPanelHeight, sf::RectangleShape& panel, sf::Clock& animationClock, bool& isMovingToUp, bool& isPanelMoving);
 void closePanel(sf::RectangleShape& panel, sf::Clock& animationClock);
@@ -11,7 +10,7 @@ int main() {
     UI ui;
 
     // Окно
-    sf::RenderWindow window(sf::VideoMode(WIDTH * CELL_SIZE, HEIGHT * CELL_SIZE + ui.getMinPanelHeight()), "SandBox");
+    sf::RenderWindow window(sf::VideoMode(WIDTH * CELL_SIZE, (HEIGHT - 1) * CELL_SIZE + ui.getMinPanelHeight()), "SandBox");
     window.setFramerateLimit(140);
     window.setVerticalSyncEnabled(false);
 

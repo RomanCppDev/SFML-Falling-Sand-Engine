@@ -2,6 +2,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include <thread>
 
 const int WIDTH = 300;
 const int HEIGHT = 225;
@@ -72,7 +73,7 @@ private:
         int dx[] = { 0, 1, 1, -1, 0, 1};
         int dy[] = { -1, 0, 0, 1, 1, 1};
 
-        for(int i = 0; i < 8; ++i){
+        for(int i = 0; i < 6; ++i){
             int tx = x+dx[i], ty = y+dy[i];
 
             if(isVaild(tx, ty)){
@@ -138,38 +139,40 @@ private:
     }
 
     void updateSand(int x, int y, int currentIndex, int color) {
-        bool waterNearby = false;
-        int targetWaterIdx = -1;
+        if((fastRand() % 100 ) <1){
+            bool waterNearby = false;
+            int targetWaterIdx = -1;
 
-        for (int dy = -5; dy <= 5; ++dy) {
-            int targetY = y + dy;
-            if (targetY < 0 || targetY >= HEIGHT) continue;
+            for (int dy = -5; dy <= 5; ++dy) {
+                int targetY = y + dy;
+                if (targetY < 0 || targetY >= HEIGHT) continue;
 
-            int rowOffset = targetY * WIDTH;
+                int rowOffset = targetY * WIDTH;
 
-            for (int dx = -5; dx <= 5; ++dx) {
-                int targetX = x + dx;
-                if (targetX < 0 || targetX >= WIDTH) continue;
+                for (int dx = -5; dx <= 5; ++dx) {
+                    int targetX = x + dx;
+                    if (targetX < 0 || targetX >= WIDTH) continue;
 
-                int checkIdx = rowOffset + targetX;
+                    int checkIdx = rowOffset + targetX;
 
-                if (grid[checkIdx] == WATER) {
-                    waterNearby = true;
-                    targetWaterIdx = checkIdx;
-                    break; 
+                    if (grid[checkIdx] == WATER) {
+                        waterNearby = true;
+                        targetWaterIdx = checkIdx;
+                        break; 
+                    }
                 }
+                if (waterNearby) break;
             }
-            if (waterNearby) break;
-        }
 
-        if (waterNearby) {
-            if((fastRand() % 100) < 1){
-                grid[currentIndex] = DIRT;
-                updatePixelVertices(currentIndex, getCellColor(DIRT, colors[currentIndex]));
+            if (waterNearby) {
+                if((fastRand() % 100) < 10){
+                    grid[currentIndex] = DIRT;
+                    updatePixelVertices(currentIndex, getCellColor(DIRT, colors[currentIndex]));
 
-                activeNeighbors(x, y);
-                activeGrid[currentIndex] = false; 
-                return; 
+                    activeNeighbors(x, y);
+                    activeGrid[currentIndex] = false; 
+                    return; 
+                }
             }
         }
         int downIdx = getIndex(x, y + 1);
@@ -546,43 +549,36 @@ public:
         }
     }
 
-    // Логика обновления блоков
-    void update(){
-        bool leftToRight = (fastRand() & 1);
-
-        for(int y = HEIGHT - 1; y >= 0; --y){
-            int rowOffset = y * WIDTH;
+    void updateRowsThread(int startY, int endY, bool leftToRight){
+        for(int y = endY - 1; y >= startY; --y){
+            int rowOffSet = y * WIDTH;
 
             for(int step = 0; step < WIDTH; ++step){
                 int x = leftToRight ? step : (WIDTH - 1 - step);
-                int currentIndex = rowOffset + x;
+                int currentIdx = rowOffSet + x;
 
-                if (grid[currentIndex] == SAND && !activeGrid[currentIndex]) {
-                    int dx[] = {0, 0, -1, 1};
-                    int dy[] = {-1, 1, 0, 0};
-                    for (int i = 0; i < 4; ++i) {
-                        int tx = x + dx[i];
-                        int ty = y + dy[i];
-                        if (isVaild(tx, ty)) {
-                            if (grid[ty * WIDTH + tx] == WATER) {
-                                activeGrid[currentIndex] = true;
-                                break;
-                            }
-                        }
-                    }
-                }
+                if(!activeGrid[currentIdx]) continue;
 
-                if(!activeGrid[currentIndex]) continue;
-
-                int type = grid[currentIndex];
-                if (updateFunctions[type] != nullptr) {
+                int type = grid[currentIdx];
+                if(updateFunctions[type] != nullptr){
                     int color = (fastRand() & 1);
-                    (this->*updateFunctions[type])(x, y, currentIndex, color);
+                    (this->*updateFunctions[type])(x, y, currentIdx, color);
                 }
             }
         }
     }
 
+    void update(){
+        bool leftToRight = (fastRand() & 1);
+        int midPoint = HEIGHT / 2;
+
+        {
+            std::jthread topThread(&SandBoxEngine::updateRowsThread, this, 0, midPoint - 2, leftToRight);
+            std::jthread bottomThread(&SandBoxEngine::updateRowsThread, this, midPoint + 2, HEIGHT, leftToRight);
+        }
+
+        updateRowsThread(midPoint - 2, midPoint + 2, leftToRight);
+    }
 
     void draw(sf::RenderWindow& win){
         texture.update(pixelBuffer.data());
