@@ -11,11 +11,6 @@ struct Button{
     std::wstring name;
 };
 
-struct ElementButton : Button{
-    unsigned int elementType;
-};
-
-
 class RoundedRectangleShape : public sf::Shape{
 private:
     sf::Vector2f size;
@@ -81,6 +76,16 @@ public:
 
 class UI {
 private:
+    struct ElementButton : Button{
+        unsigned int elementType;
+        float xOffset = 0.f;
+        float yOffset = 0.f;
+    };
+
+    struct BtnConfig { unsigned int type; std::wstring name; std::string file; float size; float x; float y; };
+
+    std::vector<ElementButton> elementButtons;
+
     static constexpr float minPanelHeight = 60.f;
     static constexpr float maxPanelHeight = 450.f;
 
@@ -91,22 +96,45 @@ private:
 
     std::map<unsigned int, sf::Texture> uiTextures;
 
-        void loadTexture(Button& btn, unsigned int elementType, std::string path, float sizeX = 80.f, float sizeY = 80.f) {
-            if (uiTextures[elementType].loadFromFile("textures/" + path)) {
-                uiTextures[elementType].setSmooth(false);   
-                uiTextures[elementType].setRepeated(false); 
+    void loadTexture(Button& btn, unsigned int elementType, std::string path, float sizeX = 80.f, float sizeY = 80.f) {
+        if (uiTextures[elementType].loadFromFile("textures/" + path)) {
+            uiTextures[elementType].setSmooth(false);   
+            uiTextures[elementType].setRepeated(false); 
         
-                btn.sprite.setTexture(uiTextures[elementType], true); 
-                btn.sprite.setScale(sizeX / uiTextures[elementType].getSize().x, sizeY / uiTextures[elementType].getSize().y);
+            btn.sprite.setTexture(uiTextures[elementType], true); 
+            btn.sprite.setScale(sizeX / uiTextures[elementType].getSize().x, sizeY / uiTextures[elementType].getSize().y);
+        }
+    }
+
+    void updatePositions(){
+        float panelY = panel.getPosition().y;
+
+        btn.setPosition((WIDTH*CELL_SIZE/2)-50.f, panelY - 10.f);
+        for(auto& b : elementButtons){
+            b.sprite.setPosition(b.xOffset, panelY + b.yOffset);
+        }
+        trashBtn.sprite.setPosition(panel.getPosition().x + (WIDTH * CELL_SIZE) - 100.f, panelY + maxPanelHeight - 190.f);
+    }
+
+    void updateButtonColors(){
+        for(auto& b : elementButtons){
+            if(b.elementType == currentItem){
+                b.sprite.setColor(sf::Color::White);
+            } else {
+                b.sprite.setColor(sf::Color(120,120,120));
             }
         }
+    }
+
+    bool isClickOnUI(const sf::Vector2i& mousePos){
+        sf::Vector2f mousePosF(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
+
+        if(panel.getGlobalBounds().contains(mousePosF) || btn.getGlobalBounds().contains(mousePosF)){
+            return true;
+        }
+        return false;
+    }
     
-    ElementButton sandBtn;
-    ElementButton waterBtn;
-    ElementButton stoneBtn;
-    ElementButton dirtBtn;
-    ElementButton acidBtn;
-    ElementButton fireBtn;
     Button trashBtn;
     RoundedRectangleShape btn;
 
@@ -126,54 +154,32 @@ public:
 
         // Кнопка выдвижения панели
         btn.setFillColor(sf::Color(169, 169, 169));
-        btn.setPosition(sf::Vector2f(((WIDTH*CELL_SIZE) / 2) - 50.f, panel.getPosition().y - 10.f));
 
-        // Кнопка-Песок
-        sandBtn.elementType = SAND;
-        sandBtn.name = L"Песок";
-        loadTexture(sandBtn, SAND, "sand.png");    
-        sandBtn.sprite.setPosition(10.f, panel.getPosition().y - 3.f);
+        std::vector<BtnConfig> configs = {
+            {SAND, L"Песок", "sand.png", 80.f, 10.f, -3.f},
+            {WATER, L"Вода", "water.png", 80.f, 90.f, -3.f}, 
+            {DIRT, L"Земля", "dirt.png", 80.f, 170.f, -3.f},
+            {STONE, L"Камень", "stone.png", 80.f, 250.f, -3.f},
+            {ACID_L, L"Кислота", "acid.png", 80.f, 330.f, -3.f},
+            {FIRE, L"Огонь", "fire.png", 60.f, 410.f, 3.f},
+        };
 
-        // Кнопка-Вода
-        waterBtn.elementType = WATER;
-        waterBtn.name = L"Вода";
-        loadTexture(waterBtn, WATER, "water.png");
-        waterBtn.sprite.setPosition(sf::Vector2f(90.f, panel.getPosition().y - 3.f));
-        waterBtn.sprite.setColor(sf::Color(120,120,120));
-
-        // Кнопка-Земля
-        dirtBtn.elementType = DIRT;
-        dirtBtn.name = L"Земля";
-        loadTexture(dirtBtn, DIRT, "dirt.png"); // Теперь DIRT автоматически найдет свое место в памяти!
-        dirtBtn.sprite.setPosition(sf::Vector2f(170.f, panel.getPosition().y - 3.f));
-        dirtBtn.sprite.setColor(sf::Color(120,120,120));
-
-        // Кнопка-Камень
-        stoneBtn.elementType = STONE;
-        stoneBtn.name = L"Камень";
-        loadTexture(stoneBtn, STONE, "stone.png");
-        stoneBtn.sprite.setPosition(sf::Vector2f(250.f, panel.getPosition().y - 3.f));
-        stoneBtn.sprite.setColor(sf::Color(120,120,120));
-
-        // Кнопка-Кислота
-        acidBtn.elementType = ACID_L;
-        acidBtn.name = L"Кислота";
-        loadTexture(acidBtn, ACID_L, "acid.png");
-        acidBtn.sprite.setPosition(sf::Vector2f(330.f, panel.getPosition().y - 3.f));
-        acidBtn.sprite.setColor(sf::Color(120,120,120));
-
-        // Кнопка-Огонь
-        fireBtn.elementType = FIRE;
-        fireBtn.name = L"Огонь";
-        loadTexture(fireBtn, FIRE, "fire.png", 60.f, 60.f); 
-        fireBtn.sprite.setPosition(sf::Vector2f(410.f, panel.getPosition().y + 3.f));
-        fireBtn.sprite.setColor(sf::Color(120,120,120));
+        for(const auto& conf : configs){
+            ElementButton b;
+            b.elementType = conf.type;
+            b.name = conf.name;
+            b.xOffset = conf.x;
+            b.yOffset = conf.y;
+            loadTexture(b, b.elementType, conf.file, conf.size, conf.size);
+            elementButtons.push_back(b);
+        }
 
         // Кнопка-Очистить 
         loadTexture(trashBtn, 0, "trash.png", 100.f, 100.f);
-        trashBtn.sprite.setPosition(panel.getPosition().x + (WIDTH*CELL_SIZE) - 100.f, panel.getPosition().y + getMaxPanelHeight() - 190.f);
         trashBtn.sprite.setColor(sf::Color(120,120,120));
 
+        updatePositions();
+        updateButtonColors();
     }
 
 
@@ -183,10 +189,6 @@ public:
 
     float getMaxPanelHeight() const {
         return maxPanelHeight;
-    }
-
-    short getCurrentItem() const{
-        return currentItem;
     }
 
     void MouseButtonPressed(SandBoxEngine& engine, sf::RenderWindow& win){
@@ -204,85 +206,17 @@ public:
             isPanelMoving = true;
         }
 
-        if(sandBtn.sprite.getGlobalBounds().contains(mousePos.x, mousePos.y)){
-            currentItem = sandBtn.elementType;
-
-            //Перекраска кнопок
-            sandBtn.sprite.setColor(sf::Color::White);
-            waterBtn.sprite.setColor(sf::Color(120,120,120));
-            dirtBtn.sprite.setColor(sf::Color(120,120,120));
-            stoneBtn.sprite.setColor(sf::Color(120,120,120));
-            acidBtn.sprite.setColor(sf::Color(120,120,120));
-            fireBtn.sprite.setColor(sf::Color(120,120,120));
-        }
-        else if(waterBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
-            currentItem = waterBtn.elementType;
-
-            //Перекраска кнопок
-            sandBtn.sprite.setColor(sf::Color(120,120,120));
-            waterBtn.sprite.setColor(sf::Color::White);
-            dirtBtn.sprite.setColor(sf::Color(120,120,120));
-            stoneBtn.sprite.setColor(sf::Color(120,120,120));
-            acidBtn.sprite.setColor(sf::Color(120,120,120));
-            fireBtn.sprite.setColor(sf::Color(120,120,120));
-        }
-        else if(dirtBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
-            currentItem = dirtBtn.elementType;
-
-            //Перекраска кнопок
-            sandBtn.sprite.setColor(sf::Color(120,120,120));
-            waterBtn.sprite.setColor(sf::Color(120,120,120));
-            dirtBtn.sprite.setColor(sf::Color::White);
-            stoneBtn.sprite.setColor(sf::Color(120,120,120));
-            acidBtn.sprite.setColor(sf::Color(120,120,120));
-            fireBtn.sprite.setColor(sf::Color(120,120,120));
-        }
-        else if(stoneBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
-            currentItem = stoneBtn.elementType;
-
-            //Перекраска кнопок
-            sandBtn.sprite.setColor(sf::Color(120,120,120));
-            waterBtn.sprite.setColor(sf::Color(120,120,120));
-            dirtBtn.sprite.setColor(sf::Color(120,120,120));
-            stoneBtn.sprite.setColor(sf::Color::White);
-            acidBtn.sprite.setColor(sf::Color(120,120,120));
-            fireBtn.sprite.setColor(sf::Color(120,120,120));
-        }
-        else if(acidBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
-            currentItem = acidBtn.elementType;
-
-            //Перекраска кнопок
-            sandBtn.sprite.setColor(sf::Color(120,120,120));
-            waterBtn.sprite.setColor(sf::Color(120,120,120));
-            dirtBtn.sprite.setColor(sf::Color(120,120,120));
-            stoneBtn.sprite.setColor(sf::Color(120,120,120));
-            acidBtn.sprite.setColor(sf::Color::White);
-            fireBtn.sprite.setColor(sf::Color(120,120,120));
-        }
-        else if(fireBtn.sprite.getGlobalBounds().contains(mousePos.x, mousePos.y)){
-            currentItem = fireBtn.elementType;
-
-            //Перекраска кнопок
-            sandBtn.sprite.setColor(sf::Color(120,120,120));
-            waterBtn.sprite.setColor(sf::Color(120,120,120));
-            dirtBtn.sprite.setColor(sf::Color(120,120,120));
-            stoneBtn.sprite.setColor(sf::Color(120,120,120));
-            acidBtn.sprite.setColor(sf::Color(120,120,120));
-            fireBtn.sprite.setColor(sf::Color::White);
-        }
-        else if(trashBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y)){
-            engine.FillGrid(AIR);
+        for(auto& b : elementButtons){
+            if(b.sprite.getGlobalBounds().contains(mousePos.x, mousePos.y)){
+                currentItem = b.elementType;
+                updateButtonColors();
+                break;
+            }
         }
     }
 
     void isLeftButtonPressed(SandBoxEngine& engine, unsigned short& brushSize, sf::Vector2i& mousePos){
-        if(mousePos.y < HEIGHT * CELL_SIZE && ( !sandBtn.sprite.getGlobalBounds().contains(mousePos.x, mousePos.y) &&
-            !waterBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !dirtBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !stoneBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !acidBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !fireBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !btn.getGlobalBounds().contains(mousePos.x,mousePos.y))){
+        if(!isClickOnUI(mousePos) && mousePos.y < HEIGHT*CELL_SIZE && mousePos.x >= 0 && mousePos.x < WIDTH*CELL_SIZE){
             int gridX = mousePos.x / CELL_SIZE;
             int gridY = mousePos.y / CELL_SIZE;
 
@@ -291,29 +225,21 @@ public:
     }
 
     void isRightButtonPressed(SandBoxEngine& engine, unsigned short& brushSize, sf::Vector2i& mousePos){
-        if(!waterBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !dirtBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !stoneBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !acidBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !fireBtn.sprite.getGlobalBounds().contains(mousePos.x,mousePos.y) &&
-            !btn.getGlobalBounds().contains(mousePos.x,mousePos.y)){
-                    if(mousePos.y < HEIGHT * CELL_SIZE){
-                        int gridX = mousePos.x / CELL_SIZE;
-                        int gridY = mousePos.y / CELL_SIZE;
+        if(!isClickOnUI(mousePos) && mousePos.y < HEIGHT * CELL_SIZE && mousePos.x >= 0 && mousePos.x < WIDTH * CELL_SIZE){
+            if(mousePos.y < HEIGHT * CELL_SIZE){
+                int gridX = mousePos.x / CELL_SIZE;
+                int gridY = mousePos.y / CELL_SIZE;
 
-                        engine.addBlock(gridX,gridY,brushSize,AIR);
-                    }
+                engine.addBlock(gridX,gridY,brushSize,AIR);
+            }
         }
     }
 
     void draw(sf::RenderWindow& win){
         win.draw(panel);
-        win.draw(sandBtn.sprite);
-        win.draw(waterBtn.sprite);
-        win.draw(dirtBtn.sprite);
-        win.draw(stoneBtn.sprite);
-        win.draw(acidBtn.sprite);
-        win.draw(fireBtn.sprite);
+        for(auto& b : elementButtons){
+            win.draw(b.sprite);
+        }
         win.draw(trashBtn.sprite);
         win.draw(btn);
     }
@@ -323,13 +249,7 @@ public:
             usePanel(getMaxPanelHeight(), getMinPanelHeight(), panel, panelClock, isPanelMovingToUp, isPanelMoving);
 
             btn.setPosition(sf::Vector2f(((WIDTH * CELL_SIZE) / 2) - 50.f, panel.getPosition().y - 10.f));
-            sandBtn.sprite.setPosition(10.f, panel.getPosition().y - 2.f);
-            waterBtn.sprite.setPosition(90.f, panel.getPosition().y-2.f);
-            dirtBtn.sprite.setPosition(170.f, panel.getPosition().y -2.f);
-            stoneBtn.sprite.setPosition(250.f, panel.getPosition().y -2.f);
-            acidBtn.sprite.setPosition(330.f, panel.getPosition().y -2.f);
-            fireBtn.sprite.setPosition(410.f, panel.getPosition().y + 3.f);
-            trashBtn.sprite.setPosition(panel.getPosition().x + (WIDTH*CELL_SIZE) - 100.f, panel.getPosition().y + getMaxPanelHeight() - 190.f);
+            updatePositions();
         }
     }
 
