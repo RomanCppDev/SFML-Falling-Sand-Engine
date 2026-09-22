@@ -166,7 +166,7 @@ public:
         fireBtn.elementType = FIRE;
         fireBtn.name = L"Огонь";
         loadTexture(fireBtn, FIRE, "fire.png", 60.f, 60.f); 
-        fireBtn.sprite.setPosition(sf::Vector2f(410.f, panel.getPosition().y - 3.f));
+        fireBtn.sprite.setPosition(sf::Vector2f(410.f, panel.getPosition().y + 3.f));
         fireBtn.sprite.setColor(sf::Color(120,120,120));
 
         // Кнопка-Очистить 

@@ -3,6 +3,7 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <thread>
+#include <atomic>
 
 const int WIDTH = 300;
 const int HEIGHT = 225;
@@ -26,6 +27,7 @@ private:
     std::vector<unsigned short> grid;
     std::vector<unsigned short> colors;
     std::vector<bool> activeGrid;
+    std::atomic_flag borderCleared = ATOMIC_FLAG_INIT;
     
     sf::Texture texture;
     sf::Sprite sprite;
@@ -512,7 +514,7 @@ public:
             for (int dx = -brushSize - 1; dx <= brushSize + 1; ++dx) {
                 int nx = mouseX + dx;
                 int ny = mouseY + dy;
-        
+    
                 if (!isVaild(nx, ny)) continue;
                 int index = getIndex(nx, ny);
 
@@ -526,13 +528,21 @@ public:
                         }
                     }
                     else if (BlockId == AIR || grid[index] == AIR) {
+                        bool wasSolidBlock = (grid[index] != AIR);
+
                         grid[index] = BlockId;
                         colors[index] = fastRand() & 1;
                         updatePixelVertices(index, getCellColor(BlockId, colors[index]));
                         activeGrid[index] = true;
 
-                        if (isVaild(nx, ny + 1)) {
-                            activeGrid[getIndex(nx, ny + 1)] = true;
+                        if (BlockId == AIR && wasSolidBlock) {
+                            if (isVaild(nx, ny - 1)) {
+                                activeGrid[getIndex(nx, ny - 1)] = true;
+                            }
+                        } else {
+                            if (isVaild(nx, ny + 1)) {
+                                activeGrid[getIndex(nx, ny + 1)] = true;
+                            }
                         }
                     }
                 } else {
@@ -549,18 +559,25 @@ public:
         }
     }
 
-    void updateRowsThread(int startY, int endY, bool leftToRight){
-        for(int y = endY - 1; y >= startY; --y){
-            int rowOffSet = y * WIDTH;
+    void updateRowsThreadInterlaced3(int startY, int phase) {
+        int startRow = HEIGHT - 1 - phase;
+    
+        int xOffset = (fastRand() % 32) - 16;
 
-            for(int step = 0; step < WIDTH; ++step){
-                int x = leftToRight ? step : (WIDTH - 1 - step);
+        for (int y = startRow; y >= startY; y -= 3) {
+            int rowOffSet = y * WIDTH;
+            for (int step = 0; step < WIDTH; ++step) {
+            
+                int x = (fastRand() & 1) ? step : (WIDTH - 1 - step);
+            
+                x = (x + xOffset + WIDTH) % WIDTH;
+            
                 int currentIdx = rowOffSet + x;
 
-                if(!activeGrid[currentIdx]) continue;
+                if (!activeGrid[currentIdx]) continue;
 
                 int type = grid[currentIdx];
-                if(updateFunctions[type] != nullptr){
+                if (updateFunctions[type] != nullptr) {
                     int color = (fastRand() & 1);
                     (this->*updateFunctions[type])(x, y, currentIdx, color);
                 }
@@ -568,16 +585,12 @@ public:
         }
     }
 
-    void update(){
-        bool leftToRight = (fastRand() & 1);
-        int midPoint = HEIGHT / 2;
-
+    void update() {
         {
-            std::jthread topThread(&SandBoxEngine::updateRowsThread, this, 0, midPoint - 2, leftToRight);
-            std::jthread bottomThread(&SandBoxEngine::updateRowsThread, this, midPoint + 2, HEIGHT, leftToRight);
+            std::jthread thread1(&SandBoxEngine::updateRowsThreadInterlaced3, this, 0, 0); // Фаза 0
+            std::jthread thread2(&SandBoxEngine::updateRowsThreadInterlaced3, this, 0, 1); // Фаза 1
+            std::jthread thread3(&SandBoxEngine::updateRowsThreadInterlaced3, this, 0, 2); // Фаза 2
         }
-
-        updateRowsThread(midPoint - 2, midPoint + 2, leftToRight);
     }
 
     void draw(sf::RenderWindow& win){
