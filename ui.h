@@ -4,14 +4,25 @@
 #include <SFML/Graphics.hpp>
 #include "engine.h"
 #include <map>
+#include <vector>
+#include <string>
+#include <algorithm>
 
-struct Button{
+struct UIElement {
     sf::Sprite sprite;
     sf::Texture texture;
     std::wstring name;
+    float xOffset = 0.f;
+    float yOffset = 0.f;
+    unsigned int elementType;
 };
 
-class RoundedRectangleShape : public sf::Shape{
+enum orientation {
+    HORIZONTAL = false,
+    VERTICAL = true,
+};
+
+class RoundedRectangleShape : public sf::Shape {
 private:
     sf::Vector2f size;
     float radius;
@@ -22,139 +33,230 @@ public:
         setRadius(this->radius); 
     }
 
-    void setSize(const sf::Vector2f& size) 
-    { 
+    void setSize(const sf::Vector2f& size) { 
         this->size = size; 
         setRadius(this->radius); 
     }
-    void setRadius(float radius) 
-    { 
+    void setRadius(float radius) { 
         float maxRadius = std::min(size.x, size.y) / 2.f;
         this->radius = std::min(radius, maxRadius); 
         update(); 
     }
     void setCornerPointCount(std::size_t count) { this->cornerPointCount = count; update(); }
 
-    virtual std::size_t getPointCount() const override{
-        return cornerPointCount*4;
+    virtual std::size_t getPointCount() const override {
+        return cornerPointCount * 4;
     }
 
-    virtual sf::Vector2f getPoint(std::size_t index) const override{
-        if(index >= cornerPointCount*4 ) return sf::Vector2f(0.f,0.f);
+    virtual sf::Vector2f getPoint(std::size_t index) const override {
+        if(index >= cornerPointCount * 4) return sf::Vector2f(0.f, 0.f);
 
-        float deltaAngel = 90.f / (cornerPointCount -1);
-        std::size_t centerIndex = index/cornerPointCount;
+        float deltaAngel = 90.f / (cornerPointCount - 1);
+        std::size_t centerIndex = index / cornerPointCount;
         std::size_t offsetIndex = index % cornerPointCount;
 
         sf::Vector2f center;
         float angle = 0.f;
 
-        switch (centerIndex)
-        {
-        case 0:
-            center = sf::Vector2f(size.x - radius, radius);
-            angle = 270.f;
-            break;
-        case 1:
-            center = sf::Vector2f(size.x- radius, size.y - radius);
-            angle = 0.f;
-            break;
-        case 2:
-            center = sf::Vector2f(radius, size.y - radius);
-            angle = 90.f;
-            break;
-        case 3:
-            center = sf::Vector2f(radius, radius);
-            angle = 180.f;
-            break;
+        switch (centerIndex) {
+        case 0: center = sf::Vector2f(size.x - radius, radius); angle = 270.f; break;
+        case 1: center = sf::Vector2f(size.x - radius, size.y - radius); angle = 0.f; break;
+        case 2: center = sf::Vector2f(radius, size.y - radius); angle = 90.f; break;
+        case 3: center = sf::Vector2f(radius, radius); angle = 180.f; break;
         }
 
-        float radians = (angle + offsetIndex * deltaAngel) * 3.141592654f/180.f;
-        return sf::Vector2f(center.x + radius *std::cos(radians), center.y + radius * std::sin(radians));
+        float radians = (angle + offsetIndex * deltaAngel) * 3.141592654f / 180.f; 
+        return sf::Vector2f(center.x + radius * std::cos(radians), center.y + radius * std::sin(radians));
+    }
+};
+
+class Panel {
+private:
+    const std::vector<UIElement*>& panelElements;
+
+    float minPanelSize = 0.f;
+    float maxPanelSize = 0.f;
+    bool orientation;
+
+    bool isPanelMovingToUp = false;
+    bool isPanelMoving = false;
+
+    sf::Clock panelClock;
+public:
+    sf::RectangleShape panel;
+    RoundedRectangleShape btn;
+
+    Panel(const float minPanelSize, const float maxPanelSize, const bool orientation, const std::vector<UIElement*>& elements) : 
+        panelElements(elements), minPanelSize(minPanelSize), maxPanelSize(maxPanelSize), orientation(orientation),
+        panel(sf::Vector2f((orientation == HORIZONTAL) ? (WIDTH*CELL_SIZE) - 4.f : maxPanelSize,
+            (orientation == HORIZONTAL) ? maxPanelSize : (HEIGHT*CELL_SIZE) - 4.f)),
+        btn(sf::Vector2f(100.f, 20.f), 10.f, 30) {
+
+            panel.setFillColor(sf::Color(40,40,40,240));
+            panel.setPosition(sf::Vector2f(2.f, (HEIGHT*CELL_SIZE)));
+            panel.setOutlineColor(sf::Color(169,169,169,240));
+            panel.setOutlineThickness(2.f);
+
+            btn.setFillColor(sf::Color(169, 169, 169));
+    }
+
+    float getMaxPanelSize() const{
+        return maxPanelSize;
+    }
+
+    float getMinSize() const { return minPanelSize; }
+
+    void updatePositions(sf::Sprite& trashBtn) {
+        float panelPos = (orientation == HORIZONTAL) ? panel.getPosition().y : panel.getPosition().x;
+
+        if (orientation == HORIZONTAL) {
+            btn.setPosition((WIDTH * CELL_SIZE / 2.f) - 50.f, panelPos - 10.f);
+        } else {
+            btn.setPosition(panelPos - 10.f, (HEIGHT * CELL_SIZE / 2.f) - 50.f);
+        }
+
+        for(auto* b : panelElements) {
+            if (!b) continue;
+            float x = (orientation == HORIZONTAL) ? b->xOffset : panelPos + b->xOffset;
+            float y = (orientation == HORIZONTAL) ? panelPos + b->yOffset : b->yOffset;
+            b->sprite.setPosition(x, y);
+        }
+        trashBtn.setPosition(panel.getPosition().x + (WIDTH * CELL_SIZE) - 100.f, panelPos + maxPanelSize - 190.f);
+    }
+
+    void updateButtonColors(unsigned int currentItem) {
+        for(auto* b : panelElements) {
+            if (!b) continue;
+            if(b->elementType == currentItem) {
+                b->sprite.setColor(sf::Color::White);
+            } else {
+                b->sprite.setColor(sf::Color(120,120,120));
+            }
+        }
+    }
+
+    void MouseButtonPressed(sf::RenderWindow& win, unsigned int& currentItem) {
+        sf::Vector2i mousePos = sf::Mouse::getPosition(win);
+        sf::Vector2f mousePosF(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
+
+        if(btn.getGlobalBounds().contains(mousePosF)) {
+            if(!isPanelMoving) {
+                float currentPos = (orientation == HORIZONTAL) ? panel.getPosition().y : panel.getPosition().x;
+                float openLimit = (orientation == HORIZONTAL) ? (HEIGHT * CELL_SIZE) : (WIDTH * CELL_SIZE);
+                
+                if(currentPos >= openLimit - 5.f) {
+                    isPanelMovingToUp = true; 
+                } else {
+                    isPanelMovingToUp = false; 
+                }
+            }
+            isPanelMoving = true;
+        }
+
+        for(auto* b : panelElements) {
+            if (!b) continue;
+            if(b->sprite.getGlobalBounds().contains(mousePosF)) {
+                currentItem = b->elementType;
+                updateButtonColors(currentItem);
+                break;
+            }
+        }
+    }
+
+    void usePanel() {
+        if (!isPanelMoving) return;
+
+        float currentPos = (orientation == HORIZONTAL) ? panel.getPosition().y : panel.getPosition().x;
+        float openLimit = (orientation == HORIZONTAL) ? static_cast<float>(HEIGHT * CELL_SIZE) : static_cast<float>(WIDTH * CELL_SIZE);
+        float closedLimit = maxPanelSize - minPanelSize;
+
+        if (panelClock.getElapsedTime().asMilliseconds() >= 10) {
+            panelClock.restart();
+
+            if (isPanelMovingToUp) { 
+                float moveStep = -10.f;
+                float nextPos = currentPos + moveStep;
+
+                if (nextPos <= closedLimit) {
+                    if (orientation == HORIZONTAL) panel.setPosition(panel.getPosition().x, closedLimit);
+                    else panel.setPosition(closedLimit, panel.getPosition().y);
+                    isPanelMoving = false;
+                } else {
+                    if (orientation == HORIZONTAL) panel.move(0.f, moveStep);
+                    else panel.move(moveStep, 0.f);
+                }
+            } 
+            else { 
+                float moveStep = 10.f;
+                float nextPos = currentPos + moveStep;
+
+                if (nextPos >= openLimit) {
+                    if (orientation == HORIZONTAL) panel.setPosition(panel.getPosition().x, openLimit);
+                    else panel.setPosition(openLimit, panel.getPosition().y);
+                    isPanelMoving = false;
+                } else {
+                    if (orientation == HORIZONTAL) panel.move(0.f, moveStep);
+                    else panel.move(moveStep, 0.f);
+                }
+            }
+        }
+    }
+
+    void MovePanel(sf::Sprite& trashBtn) {
+        if(isPanelMoving) {
+            usePanel();
+            updatePositions(trashBtn);
+        }
+    }
+
+    void draw(sf::RenderWindow& win) {
+        win.draw(panel);
+        win.draw(btn);
+        for(auto* b : panelElements) {
+            if (b) win.draw(b->sprite);
+        }
     }
 };
 
 class UI {
 private:
-    struct ElementButton : Button{
-        unsigned int elementType;
-        float xOffset = 0.f;
-        float yOffset = 0.f;
+    struct BtnConfig { 
+        unsigned int type; 
+        std::wstring name; 
+        std::string file; 
+        float size; 
+        float x; 
+        float y; 
     };
 
-    struct BtnConfig { unsigned int type; std::wstring name; std::string file; float size; float x; float y; };
+    std::vector<UIElement*> ItemPanelElement;
 
-    std::vector<ElementButton> elementButtons;
+public:    
+    Panel ItemPanel;
 
-    static constexpr float minPanelHeight = 60.f;
-    static constexpr float maxPanelHeight = 450.f;
-
+private:
+    std::vector<UIElement> elementButtons;
     unsigned int currentItem = SAND;
 
-    bool isPanelMovingToUp = false;
-    bool isPanelMoving = false; 
-
     std::map<unsigned int, sf::Texture> uiTextures;
+    UIElement trashBtn;
 
-    void loadTexture(Button& btn, unsigned int elementType, std::string path, float sizeX = 80.f, float sizeY = 80.f) {
+    void loadTexture(UIElement& btn, unsigned int elementType, std::string path, float sizeX = 80.f, float sizeY = 80.f) {
         if (uiTextures[elementType].loadFromFile("textures/" + path)) {
             uiTextures[elementType].setSmooth(false);   
             uiTextures[elementType].setRepeated(false); 
-        
             btn.sprite.setTexture(uiTextures[elementType], true); 
             btn.sprite.setScale(sizeX / uiTextures[elementType].getSize().x, sizeY / uiTextures[elementType].getSize().y);
         }
     }
 
-    void updatePositions(){
-        float panelY = panel.getPosition().y;
-
-        btn.setPosition((WIDTH*CELL_SIZE/2)-50.f, panelY - 10.f);
-        for(auto& b : elementButtons){
-            b.sprite.setPosition(b.xOffset, panelY + b.yOffset);
-        }
-        trashBtn.sprite.setPosition(panel.getPosition().x + (WIDTH * CELL_SIZE) - 100.f, panelY + maxPanelHeight - 190.f);
-    }
-
-    void updateButtonColors(){
-        for(auto& b : elementButtons){
-            if(b.elementType == currentItem){
-                b.sprite.setColor(sf::Color::White);
-            } else {
-                b.sprite.setColor(sf::Color(120,120,120));
-            }
-        }
-    }
-
-    bool isClickOnUI(const sf::Vector2i& mousePos){
+    bool isClickOnUI(const sf::Vector2i& mousePos) {
         sf::Vector2f mousePosF(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
-
-        if(panel.getGlobalBounds().contains(mousePosF) || btn.getGlobalBounds().contains(mousePosF)){
-            return true;
-        }
-        return false;
+        return (ItemPanel.panel.getGlobalBounds().contains(mousePosF) || ItemPanel.btn.getGlobalBounds().contains(mousePosF));
     }
     
-    Button trashBtn;
-    RoundedRectangleShape btn;
-
-    sf::Clock panelClock;
-
 public:    
-    sf::RectangleShape panel; 
-        UI() : 
-    panel(sf::Vector2f((WIDTH * CELL_SIZE) - 4.f, maxPanelHeight)),
-    btn(sf::Vector2f(100.f,20.f), 10.f, 30) {
-
-        // Панель
-        panel.setFillColor(sf::Color(40,40,40,240));
-        panel.setPosition(sf::Vector2f(2.f, (HEIGHT*CELL_SIZE) ));
-        panel.setOutlineColor(sf::Color(169,169,169,240));
-        panel.setOutlineThickness(2.f);
-
-        // Кнопка выдвижения панели
-        btn.setFillColor(sf::Color(169, 169, 169));
-
+    UI() : ItemPanel(60.f, 450.f, HORIZONTAL, ItemPanelElement) {
         std::vector<BtnConfig> configs = {
             {SAND, L"Песок", "sand.png", 80.f, 10.f, -3.f},
             {WATER, L"Вода", "water.png", 80.f, 90.f, -3.f}, 
@@ -164,8 +266,10 @@ public:
             {FIRE, L"Огонь", "fire.png", 60.f, 410.f, 3.f},
         };
 
-        for(const auto& conf : configs){
-            ElementButton b;
+        elementButtons.reserve(configs.size());
+
+        for (const auto& conf : configs) {
+            UIElement b;
             b.elementType = conf.type;
             b.name = conf.name;
             b.xOffset = conf.x;
@@ -174,118 +278,52 @@ public:
             elementButtons.push_back(b);
         }
 
-        // Кнопка-Очистить 
         loadTexture(trashBtn, 0, "trash.png", 100.f, 100.f);
-        trashBtn.sprite.setColor(sf::Color(120,120,120));
+        trashBtn.sprite.setColor(sf::Color(120, 120, 120));
 
-        updatePositions();
-        updateButtonColors();
+        for (size_t i = 0; i < elementButtons.size(); ++i) {
+            ItemPanelElement.push_back(&elementButtons[i]);
+        }
+
+        ItemPanel.updatePositions(trashBtn.sprite);
+        trashBtn.sprite.setPosition(ItemPanel.panel.getPosition().x + (WIDTH * CELL_SIZE) - 100.f, ItemPanel.panel.getPosition().y + ItemPanel.getMaxPanelSize() - 190.f);
+        ItemPanel.updateButtonColors(currentItem);
     }
-
 
     float getMinPanelHeight() const {
-        return minPanelHeight;
+        return ItemPanel.getMinSize();
     }
 
-    float getMaxPanelHeight() const {
-        return maxPanelHeight;
+    void MovePanel() {
+        ItemPanel.MovePanel(trashBtn.sprite);
     }
 
-    void MouseButtonPressed(SandBoxEngine& engine, sf::RenderWindow& win){
-        sf::Vector2i mousePos = sf::Mouse::getPosition(win);
-
-        if(btn.getGlobalBounds().contains(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y))){
-            if(!isPanelMoving){
-                if(panel.getPosition().y >= (HEIGHT * CELL_SIZE) - 5) {
-                    isPanelMovingToUp = false; 
-                }
-                else {
-                    isPanelMovingToUp = true; 
-                }
-            }
-            isPanelMoving = true;
-        }
-
-        for(auto& b : elementButtons){
-            if(b.sprite.getGlobalBounds().contains(mousePos.x, mousePos.y)){
-                currentItem = b.elementType;
-                updateButtonColors();
-                break;
-            }
+    void MouseButtonPressed(SandBoxEngine& engine, sf::RenderWindow& win) {
+        ItemPanel.MouseButtonPressed(win, currentItem);
+        sf::Vector2i mP = sf::Mouse::getPosition(win);
+        if(trashBtn.sprite.getGlobalBounds().contains(mP.x, mP.y)){
+            engine.FillGrid(AIR);
         }
     }
 
-    void isLeftButtonPressed(SandBoxEngine& engine, unsigned short& brushSize, sf::Vector2i& mousePos){
-        if(!isClickOnUI(mousePos) && mousePos.y < HEIGHT*CELL_SIZE && mousePos.x >= 0 && mousePos.x < WIDTH*CELL_SIZE){
+    void isLeftButtonPressed(SandBoxEngine& engine, unsigned short& brushSize, sf::Vector2i& mousePos) {
+        if (!isClickOnUI(mousePos) && mousePos.y < HEIGHT * CELL_SIZE && mousePos.x >= 0 && mousePos.x < WIDTH * CELL_SIZE) {
             int gridX = mousePos.x / CELL_SIZE;
             int gridY = mousePos.y / CELL_SIZE;
-
-            engine.addBlock(gridX,gridY,brushSize,currentItem);
+            engine.addBlock(gridX, gridY, brushSize, currentItem);
         }
     }
 
-    void isRightButtonPressed(SandBoxEngine& engine, unsigned short& brushSize, sf::Vector2i& mousePos){
-        if(!isClickOnUI(mousePos) && mousePos.y < HEIGHT * CELL_SIZE && mousePos.x >= 0 && mousePos.x < WIDTH * CELL_SIZE){
-            if(mousePos.y < HEIGHT * CELL_SIZE){
-                int gridX = mousePos.x / CELL_SIZE;
-                int gridY = mousePos.y / CELL_SIZE;
-
-                engine.addBlock(gridX,gridY,brushSize,AIR);
-            }
+    void isRightButtonPressed(SandBoxEngine& engine, unsigned short& brushSize, sf::Vector2i& mousePos) {
+        if (!isClickOnUI(mousePos) && mousePos.y < HEIGHT * CELL_SIZE && mousePos.x >= 0 && mousePos.x < WIDTH * CELL_SIZE) {
+            int gridX = mousePos.x / CELL_SIZE;
+            int gridY = mousePos.y / CELL_SIZE;
+            engine.addBlock(gridX, gridY, brushSize, AIR); 
         }
     }
 
-    void draw(sf::RenderWindow& win){
-        win.draw(panel);
-        for(auto& b : elementButtons){
-            win.draw(b.sprite);
-        }
+    void draw(sf::RenderWindow& win) {
+        ItemPanel.draw(win);      
         win.draw(trashBtn.sprite);
-        win.draw(btn);
-    }
-
-    void MovePanel(){
-        if(isPanelMoving){
-            usePanel(getMaxPanelHeight(), getMinPanelHeight(), panel, panelClock, isPanelMovingToUp, isPanelMoving);
-
-            btn.setPosition(sf::Vector2f(((WIDTH * CELL_SIZE) / 2) - 50.f, panel.getPosition().y - 10.f));
-            updatePositions();
-        }
-    }
-
-    void usePanel(const int& maxPanelHeight, const int& minPanelHeight, sf::RectangleShape& panel, sf::Clock& animationClock, bool& isMovingToUp, bool& isPanelMoving) {
-        float currentY = panel.getPosition().y;
-    
-        if (isMovingToUp) {
-            float bottomLimit = static_cast<float>(HEIGHT * CELL_SIZE);
-            if (currentY < bottomLimit) {
-                if (animationClock.getElapsedTime().asMilliseconds() >= 10) {
-                    panel.move(0.f, 10.f); 
-                    animationClock.restart(); 
-                
-                    if (panel.getPosition().y >= bottomLimit) {
-                        panel.setPosition(panel.getPosition().x, bottomLimit);
-                        isPanelMoving = false; 
-                    }
-                }
-            } else {
-                isPanelMoving = false; 
-            }
-        } else {
-            int topLimit = maxPanelHeight - minPanelHeight;
-            if (currentY > topLimit) {
-                if (animationClock.getElapsedTime().asMilliseconds() >= 10) {
-                    panel.move(0.f, -10.f); 
-                    animationClock.restart(); 
-                
-                    if (panel.getPosition().y <= topLimit) {
-                        panel.setPosition(panel.getPosition().x, static_cast<float>(topLimit));
-                        isPanelMoving = false;
-                    }
-                }
-            } else {
-                isPanelMoving = false; 
-            }
-        }
     }
 };

@@ -9,7 +9,7 @@ const int WIDTH = 300;
 const int HEIGHT = 225;
 const int CELL_SIZE = 3;
 
-enum Element{
+enum element{
     AIR    = 0,        
     SAND   = 1,  
     WATER  = 2,   
